@@ -126,7 +126,7 @@ export function Dashboard() {
   };
 
   // Generate labels with numbers for duplicates
-  const getRoadmapLabel = (roadmap: RoadmapData, index: number): string => {
+  const getRoadmapLabel = (roadmap: RoadmapData): string => {
     const career = roadmap.target_career || 'Untitled Roadmap';
     const sameCareerRoadmaps = roadmaps.filter((r) => (r.target_career || '') === (roadmap.target_career || ''));
 
@@ -226,14 +226,14 @@ export function Dashboard() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {roadmaps.map((roadmap, index) => (
+            {roadmaps.map((roadmap) => (
               <div key={roadmap.id} className="relative">
                 <Card className="hover:shadow-xl transition-shadow h-full">
                   <div className="flex">
                     {/* Main content - clickable to view roadmap */}
                     <Link to={`/roadmap/${roadmap.id}`} className="flex-1 min-w-0">
                       <CardHeader>
-                        <CardTitle>{getRoadmapLabel(roadmap, index)}</CardTitle>
+                        <CardTitle>{getRoadmapLabel(roadmap)}</CardTitle>
                         {formatDate(roadmap.created_at) && (
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             Created {formatDate(roadmap.created_at)}
