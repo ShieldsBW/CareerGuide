@@ -200,11 +200,6 @@ export function Dashboard() {
           </Link>
         </div>
 
-        {/* API Usage */}
-        <div className="mb-8">
-          <ApiUsageDisplay usage={apiUsage} isLoading={isLoadingUsage} />
-        </div>
-
         {roadmaps.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
@@ -294,6 +289,11 @@ export function Dashboard() {
             ))}
           </div>
         )}
+
+        {/* API Usage - collapsible at bottom */}
+        <div className="mt-8">
+          <ApiUsageDisplay usage={apiUsage} isLoading={isLoadingUsage} />
+        </div>
       </main>
     </div>
   );
