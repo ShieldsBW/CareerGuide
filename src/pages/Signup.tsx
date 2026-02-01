@@ -33,7 +33,7 @@ export function Signup() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/CareerGuide/onboarding`,
+        emailRedirectTo: `${window.location.origin}/CareerGuide/auth/callback`,
       },
     });
 
@@ -59,7 +59,7 @@ export function Signup() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${window.location.origin}/CareerGuide/onboarding`,
+        redirectTo: `${window.location.origin}/CareerGuide/auth/callback`,
       },
     });
 
