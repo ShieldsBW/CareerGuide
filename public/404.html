@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CareerGuide</title>
+    <script>
+      // Single Page App redirect for GitHub Pages
+      // This script redirects 404s to index.html for client-side routing
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      window.location.replace(
+        window.location.origin + '/CareerGuide/' +
+        '?redirect=' + encodeURIComponent(path + search + hash)
+      );
+    </script>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+  </body>
+</html>
