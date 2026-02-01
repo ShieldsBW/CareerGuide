@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui';
+import { Button, Card, CardContent, Input } from '../components/ui';
 import { SkillsEditor } from '../components/SkillsEditor';
 import { supabase } from '../lib/supabase';
 import type { UserSkill } from '../types';
@@ -10,6 +10,10 @@ export function Skills() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [skills, setSkills] = useState<UserSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importedSkills, setImportedSkills] = useState<string[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check auth status
@@ -61,7 +65,7 @@ export function Skills() {
     }
   };
 
-  const handleAddSkill = async (skillName: string, proficiencyLevel: number) => {
+  const handleAddSkill = async (skillName: string, proficiencyLevel: number, source: string = 'manual') => {
     if (!user) return;
 
     try {
@@ -71,7 +75,7 @@ export function Skills() {
           user_id: user.id,
           skill_name: skillName,
           proficiency_level: proficiencyLevel,
-          source: 'manual',
+          source,
         })
         .select()
         .single();
@@ -149,6 +153,60 @@ export function Skills() {
     navigate('/');
   };
 
+  const handleLinkedInImport = async () => {
+    if (!linkedinUrl.trim()) return;
+
+    setIsImporting(true);
+    setImportError(null);
+    setImportedSkills([]);
+
+    try {
+      const response = await supabase.functions.invoke('import-linkedin-skills', {
+        body: { linkedinUrl: linkedinUrl.trim() },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to import skills');
+      }
+
+      const data = response.data;
+
+      if (!data.success) {
+        setImportError(data.error || 'Could not import skills from this profile.');
+        return;
+      }
+
+      if (data.skills && data.skills.length > 0) {
+        setImportedSkills(data.skills);
+        setLinkedinUrl('');
+      } else {
+        setImportError('No skills found on this LinkedIn profile.');
+      }
+    } catch (error: any) {
+      console.error('Error importing skills:', error);
+      setImportError(error.message || 'Failed to import skills. Please try again.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleAddImportedSkill = async (skillName: string, proficiencyLevel: number) => {
+    await handleAddSkill(skillName, proficiencyLevel, 'linkedin');
+    // Remove from imported list
+    setImportedSkills((prev) => prev.filter((s) => s !== skillName));
+  };
+
+  const handleSkipImportedSkill = (skillName: string) => {
+    setImportedSkills((prev) => prev.filter((s) => s !== skillName));
+  };
+
+  const handleAddAllImported = async (proficiencyLevel: number) => {
+    for (const skillName of importedSkills) {
+      await handleAddSkill(skillName, proficiencyLevel, 'linkedin');
+    }
+    setImportedSkills([]);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -201,6 +259,120 @@ export function Skills() {
             Track your skills and proficiency levels. This helps us provide better gap analysis and recommendations.
           </p>
         </div>
+
+        {/* LinkedIn Import Section */}
+        <Card className="mb-6">
+          <CardContent>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Import from LinkedIn
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Paste your LinkedIn profile URL to automatically import your skills.
+              <span className="text-amber-600 dark:text-amber-400 font-medium"> Your profile must be set to public</span> for this to work.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <Input
+                  placeholder="https://linkedin.com/in/your-profile"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  disabled={isImporting}
+                />
+              </div>
+              <Button
+                onClick={handleLinkedInImport}
+                disabled={!linkedinUrl.trim() || isImporting}
+                isLoading={isImporting}
+              >
+                {isImporting ? 'Importing...' : 'Import Skills'}
+              </Button>
+            </div>
+
+            {importError && (
+              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Imported Skills to Review */}
+        {importedSkills.length > 0 && (
+          <Card className="mb-6 border-2 border-indigo-200 dark:border-indigo-800">
+            <CardContent>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Review Imported Skills ({importedSkills.length})
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Set your proficiency level for each skill to add it to your profile.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setImportedSkills([])}
+                >
+                  Clear All
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {importedSkills.map((skillName) => (
+                  <div
+                    key={skillName}
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <span className="flex-1 font-medium text-gray-900 dark:text-white">
+                      {skillName}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => handleAddImportedSkill(skillName, level)}
+                          className="w-8 h-8 rounded-full border-2 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors"
+                          title={`Level ${level}`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => handleSkipImportedSkill(skillName)}
+                        className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Skip this skill"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  Or add all skills at once with the same level:
+                </p>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <Button
+                      key={level}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddAllImported(level)}
+                    >
+                      All at Level {level}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <SkillsEditor
           skills={skills}

@@ -22,7 +22,8 @@
       "Bash(gh secret set:*)",
       "Bash(SUPABASE_ACCESS_TOKEN=sbp_5a58e15c8fe9cc6a2941e5050c1b5f3510fdd6b9 npx supabase:*)",
       "Bash(gh secret list:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(supabase --version:*)"
     ]
   }
 }
