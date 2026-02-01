@@ -4,14 +4,25 @@ import { Button, Card, CardContent } from '../components/ui';
 import { MilestoneCard } from '../components/MilestoneCard';
 import { SkillGapAnalysis } from '../components/SkillGapAnalysis';
 import { supabase } from '../lib/supabase';
-import type { Roadmap as RoadmapType, Milestone, Subtask, SkillGapAnalysis as SkillGapAnalysisType, TargetRoleSkill } from '../types';
+import type { Milestone, Subtask, SkillGapAnalysis as SkillGapAnalysisType, TargetRoleSkill, Citation } from '../types';
 
 type TabType = 'milestones' | 'skills';
+
+// Local type matching database schema (snake_case)
+interface RoadmapData {
+  id: string;
+  user_id: string;
+  target_career: string;
+  target_date: string;
+  citations: Citation[];
+  created_at: string;
+  milestones: Milestone[];
+}
 
 export function Roadmap() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [roadmap, setRoadmap] = useState<RoadmapType | null>(null);
+  const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
   const [targetSkills, setTargetSkills] = useState<TargetRoleSkill[]>([]);
   const [skillGapAnalysis, setSkillGapAnalysis] = useState<SkillGapAnalysisType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -174,7 +185,7 @@ export function Roadmap() {
           milestoneId,
           milestoneTitle: milestone.title,
           milestoneDescription: milestone.description,
-          targetCareer: roadmap.targetCareer,
+          targetCareer: roadmap.target_career,
         },
       });
 
@@ -221,7 +232,7 @@ export function Roadmap() {
       const response = await supabase.functions.invoke('analyze-skill-gaps', {
         body: {
           roadmapId: id,
-          targetCareer: roadmap.targetCareer,
+          targetCareer: roadmap.target_career,
         },
       });
 
@@ -288,7 +299,7 @@ export function Roadmap() {
                 ← Back to Dashboard
               </Link>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {roadmap.targetCareer}
+                {roadmap.target_career}
               </h1>
             </div>
             <div className="flex items-center gap-2">
@@ -396,7 +407,7 @@ export function Roadmap() {
             {/* Target Skills */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Required Skills for {roadmap.targetCareer}
+                Required Skills for {roadmap.target_career}
               </h2>
               {targetSkills.length > 0 ? (
                 <Card>
