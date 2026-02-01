@@ -189,7 +189,15 @@ export function Roadmap() {
         },
       });
 
-      if (response.error) throw response.error;
+      if (response.error) {
+        console.error('Function error:', response.error);
+        throw new Error(response.error.message || JSON.stringify(response.error));
+      }
+
+      if (response.data?.error) {
+        console.error('Response error:', response.data.error);
+        throw new Error(response.data.error);
+      }
 
       const { subtasks: newSubtasks } = response.data;
 
@@ -209,9 +217,10 @@ export function Roadmap() {
           m.id === milestoneId ? { ...m, subtasks: transformedSubtasks } : m
         ),
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating subtasks:', error);
-      alert('Failed to generate subtasks. Please try again.');
+      const errorMessage = error?.message || error?.error || String(error);
+      alert(`Failed to generate subtasks: ${errorMessage}`);
     } finally {
       setGeneratingSubtasksFor(null);
     }

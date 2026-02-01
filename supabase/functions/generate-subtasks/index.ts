@@ -170,8 +170,9 @@ Create 4-6 specific, actionable subtasks that will help achieve this milestone. 
 
   } catch (error) {
     console.error('Error:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, details: String(error) }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
