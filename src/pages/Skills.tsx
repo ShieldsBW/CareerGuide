@@ -14,6 +14,7 @@ export function Skills() {
   const [isImporting, setIsImporting] = useState(false);
   const [importedSkills, setImportedSkills] = useState<string[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importSource, setImportSource] = useState<'linkedin' | 'pdf'>('pdf');
 
   useEffect(() => {
     // Check auth status
@@ -159,6 +160,7 @@ export function Skills() {
     setIsImporting(true);
     setImportError(null);
     setImportedSkills([]);
+    setImportSource('linkedin');
 
     try {
       const response = await supabase.functions.invoke('import-linkedin-skills', {
@@ -191,7 +193,7 @@ export function Skills() {
   };
 
   const handleAddImportedSkill = async (skillName: string, proficiencyLevel: number) => {
-    await handleAddSkill(skillName, proficiencyLevel, 'linkedin');
+    await handleAddSkill(skillName, proficiencyLevel, importSource);
     // Remove from imported list
     setImportedSkills((prev) => prev.filter((s) => s !== skillName));
   };
@@ -202,9 +204,72 @@ export function Skills() {
 
   const handleAddAllImported = async (proficiencyLevel: number) => {
     for (const skillName of importedSkills) {
-      await handleAddSkill(skillName, proficiencyLevel, 'linkedin');
+      await handleAddSkill(skillName, proficiencyLevel, importSource);
     }
     setImportedSkills([]);
+  };
+
+  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      setImportError('Please upload a PDF file.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setImportError('File size must be less than 10MB.');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+    setImportedSkills([]);
+    setImportSource('pdf');
+
+    try {
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data URL prefix to get just base64
+          const base64Data = result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const response = await supabase.functions.invoke('import-pdf-skills', {
+        body: { pdfBase64: base64, fileName: file.name },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to process PDF');
+      }
+
+      const data = response.data;
+
+      if (!data.success) {
+        setImportError(data.error || 'Could not extract skills from this PDF.');
+        return;
+      }
+
+      if (data.skills && data.skills.length > 0) {
+        setImportedSkills(data.skills);
+      } else {
+        setImportError('No skills found in the document.');
+      }
+    } catch (error: any) {
+      console.error('Error importing PDF:', error);
+      setImportError(error.message || 'Failed to process PDF. Please try again.');
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      event.target.value = '';
+    }
   };
 
   if (isLoading) {
@@ -260,37 +325,92 @@ export function Skills() {
           </p>
         </div>
 
-        {/* LinkedIn Import Section */}
+        {/* Import Skills Section */}
         <Card className="mb-6">
           <CardContent>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Import from LinkedIn
+              Import Skills
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Paste your LinkedIn profile URL to automatically import your skills.
-              <span className="text-amber-600 dark:text-amber-400 font-medium"> Your profile must be set to public</span> for this to work.
+              Upload your LinkedIn PDF or resume to automatically extract your skills.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <Input
-                  placeholder="https://linkedin.com/in/your-profile"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  disabled={isImporting}
-                />
+            {/* PDF Upload - Primary Option */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span className="font-medium text-gray-900 dark:text-white">Upload LinkedIn PDF or Resume</span>
+                <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-0.5 rounded-full">Recommended</span>
               </div>
-              <Button
-                onClick={handleLinkedInImport}
-                disabled={!linkedinUrl.trim() || isImporting}
-                isLoading={isImporting}
-              >
-                {isImporting ? 'Importing...' : 'Import Skills'}
-              </Button>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                On LinkedIn: Go to your profile → Click "More" → Select "Save to PDF"
+              </p>
+              <label className={`flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isImporting ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-indigo-300 dark:border-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'}`}>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfUpload}
+                  disabled={isImporting}
+                  className="hidden"
+                />
+                {isImporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600"></div>
+                    <span className="text-gray-600 dark:text-gray-400">Processing PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    <span className="text-indigo-600 font-medium">Click to upload PDF</span>
+                  </>
+                )}
+              </label>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">OR</span>
+              <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>
+            </div>
+
+            {/* LinkedIn URL - Secondary Option */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                </svg>
+                <span className="font-medium text-gray-900 dark:text-white">Import from LinkedIn URL</span>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                Requires public profile visibility
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1">
+                  <Input
+                    placeholder="https://linkedin.com/in/your-profile"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    disabled={isImporting}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleLinkedInImport}
+                  disabled={!linkedinUrl.trim() || isImporting}
+                  isLoading={isImporting}
+                >
+                  Import
+                </Button>
+              </div>
             </div>
 
             {importError && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
               </div>
             )}
