@@ -370,7 +370,7 @@ export function Skills() {
                     key={skillName}
                     className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
-                    <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white truncate" title={skillName}>
+                    <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white line-clamp-2 break-words">
                       {skillName}
                     </span>
                     <div className="flex items-center gap-1 flex-shrink-0">
@@ -378,16 +378,15 @@ export function Skills() {
                         <button
                           key={level}
                           onClick={() => handleAddImportedSkill(skillName, level)}
-                          className="w-6 h-6 rounded-full border-2 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
-                          title={['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Expert'][level - 1]}
+                          className="w-6 h-6 rounded-full border-2 border-indigo-300 dark:border-indigo-600 active:bg-indigo-600 active:text-white active:border-indigo-600 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
                         >
                           {level}
                         </button>
                       ))}
                       <button
                         onClick={() => handleSkipImportedSkill(skillName)}
-                        className="ml-1 p-0.5 text-gray-400 hover:text-red-500 transition-colors"
-                        title="Skip this skill"
+                        className="ml-1 p-0.5 text-gray-400 active:text-red-500 transition-colors"
+                        aria-label="Skip this skill"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
