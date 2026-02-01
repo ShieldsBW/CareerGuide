@@ -11,3 +11,45 @@ body {
     @apply bg-gray-900 text-gray-100;
   }
 }
+
+/* Custom scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #a5b4fc #e5e7eb;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #e5e7eb;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #a5b4fc;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #818cf8;
+}
+
+@media (prefers-color-scheme: dark) {
+  .scrollbar-thin {
+    scrollbar-color: #6366f1 #374151;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #374151;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #6366f1;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+  }
+}

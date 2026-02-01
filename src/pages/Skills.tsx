@@ -354,31 +354,31 @@ export function Skills() {
               </div>
 
               {/* Scale indicator */}
-              <div className="flex items-center justify-end gap-2 mb-3 pr-10">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Beginner</span>
-                <div className="flex gap-2">
+              <div className="flex items-center justify-end gap-1 mb-2 pr-7 text-[10px] text-gray-400">
+                <span>Beginner</span>
+                <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((level) => (
-                    <div key={level} className="w-8 text-center text-xs text-gray-400">{level}</div>
+                    <div key={level} className="w-6 text-center">{level}</div>
                   ))}
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Expert</span>
+                <span>Expert</span>
               </div>
 
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-1.5 max-h-72 overflow-y-scroll pr-1 scrollbar-thin">
                 {importedSkills.map((skillName) => (
                   <div
                     key={skillName}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
-                    <span className="flex-1 font-medium text-gray-900 dark:text-white">
+                    <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white truncate" title={skillName}>
                       {skillName}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       {[1, 2, 3, 4, 5].map((level) => (
                         <button
                           key={level}
                           onClick={() => handleAddImportedSkill(skillName, level)}
-                          className="w-8 h-8 rounded-full border-2 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors"
+                          className="w-6 h-6 rounded-full border-2 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
                           title={['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Expert'][level - 1]}
                         >
                           {level}
@@ -386,10 +386,10 @@ export function Skills() {
                       ))}
                       <button
                         onClick={() => handleSkipImportedSkill(skillName)}
-                        className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        className="ml-1 p-0.5 text-gray-400 hover:text-red-500 transition-colors"
                         title="Skip this skill"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
