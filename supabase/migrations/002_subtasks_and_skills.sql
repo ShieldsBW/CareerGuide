@@ -5,7 +5,7 @@
 -- SUBTASKS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS subtasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   milestone_id UUID REFERENCES milestones ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
@@ -66,7 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_subtasks_milestone_id ON subtasks(milestone_id);
 -- USER SKILLS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS user_skills (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
   skill_name TEXT NOT NULL,
   proficiency_level INTEGER CHECK (proficiency_level BETWEEN 1 AND 5) DEFAULT 1,
@@ -99,7 +99,7 @@ CREATE INDEX IF NOT EXISTS idx_user_skills_user_id ON user_skills(user_id);
 -- TARGET ROLE SKILLS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS target_role_skills (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   roadmap_id UUID REFERENCES roadmaps ON DELETE CASCADE NOT NULL,
   skill_name TEXT NOT NULL,
   required_level INTEGER CHECK (required_level BETWEEN 1 AND 5) DEFAULT 3,
@@ -155,7 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_target_role_skills_roadmap_id ON target_role_skil
 -- SKILL GAP ANALYSIS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS skill_gap_analysis (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   roadmap_id UUID REFERENCES roadmaps ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
   overall_readiness INTEGER CHECK (overall_readiness BETWEEN 0 AND 100) DEFAULT 0,
@@ -190,7 +190,7 @@ CREATE INDEX IF NOT EXISTS idx_skill_gap_analysis_user_id ON skill_gap_analysis(
 -- API USAGE TRACKING TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS api_usage (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
   operation TEXT NOT NULL, -- 'generate_roadmap', 'generate_subtasks', 'analyze_gaps'
   credits_used INTEGER DEFAULT 1,
