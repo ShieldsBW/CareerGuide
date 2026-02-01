@@ -3,15 +3,25 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../components/ui';
 import { ApiUsageDisplay } from '../components/ApiUsageDisplay';
 import { supabase } from '../lib/supabase';
-import type { Roadmap, ApiUsageSummary } from '../types';
+import type { ApiUsageSummary } from '../types';
+
+interface RoadmapData {
+  id: string;
+  user_id: string;
+  target_career: string;
+  created_at: string;
+  milestones?: { id: string }[];
+}
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
-  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
+  const [roadmaps, setRoadmaps] = useState<RoadmapData[]>([]);
   const [apiUsage, setApiUsage] = useState<ApiUsageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingUsage, setIsLoadingUsage] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check auth status
@@ -94,6 +104,51 @@ export function Dashboard() {
     navigate('/');
   };
 
+  const handleDeleteRoadmap = async (roadmapId: string) => {
+    setDeletingId(roadmapId);
+    try {
+      const { error } = await supabase
+        .from('roadmaps')
+        .delete()
+        .eq('id', roadmapId);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setRoadmaps((prev) => prev.filter((r) => r.id !== roadmapId));
+    } catch (error) {
+      console.error('Error deleting roadmap:', error);
+      alert('Failed to delete roadmap. Please try again.');
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+    }
+  };
+
+  // Generate labels with numbers for duplicates
+  const getRoadmapLabel = (roadmap: RoadmapData, index: number): string => {
+    const career = roadmap.target_career;
+    const sameCareerRoadmaps = roadmaps.filter((r) => r.target_career === career);
+
+    if (sameCareerRoadmaps.length > 1) {
+      // Find the index of this roadmap among same-career roadmaps (sorted by created_at)
+      const sortedSameCareer = [...sameCareerRoadmaps].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      const careerIndex = sortedSameCareer.findIndex((r) => r.id === roadmap.id) + 1;
+      return `${career} ${careerIndex}`;
+    }
+
+    return career;
+  };
+
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString();
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -165,27 +220,76 @@ export function Dashboard() {
           </Card>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {roadmaps.map((roadmap) => (
-              <Link key={roadmap.id} to={`/roadmap/${roadmap.id}`}>
-                <Card className="hover:shadow-xl transition-shadow cursor-pointer h-full">
-                  <CardHeader>
-                    <CardTitle>{roadmap.targetCareer}</CardTitle>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Created {new Date(roadmap.createdAt).toLocaleDateString()}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {roadmap.milestones?.length || 0} milestones
-                      </span>
-                      <span className="text-sm font-medium text-indigo-600">
-                        View Details →
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+            {roadmaps.map((roadmap, index) => (
+              <div key={roadmap.id} className="relative group">
+                <Link to={`/roadmap/${roadmap.id}`}>
+                  <Card className="hover:shadow-xl transition-shadow cursor-pointer h-full">
+                    <CardHeader>
+                      <CardTitle>{getRoadmapLabel(roadmap, index)}</CardTitle>
+                      {formatDate(roadmap.created_at) && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Created {formatDate(roadmap.created_at)}
+                        </p>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {roadmap.milestones?.length || 0} milestones
+                        </span>
+                        <span className="text-sm font-medium text-indigo-600">
+                          View Details →
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+
+                {/* Delete Button */}
+                {confirmDeleteId === roadmap.id ? (
+                  <div className="absolute top-2 right-2 flex gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 z-10">
+                    <span className="text-xs text-gray-600 dark:text-gray-400 mr-1 self-center">Delete?</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setConfirmDeleteId(null);
+                      }}
+                      disabled={deletingId === roadmap.id}
+                    >
+                      No
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDeleteRoadmap(roadmap.id);
+                      }}
+                      isLoading={deletingId === roadmap.id}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      Yes
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setConfirmDeleteId(roadmap.id);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full shadow"
+                    title="Delete roadmap"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}

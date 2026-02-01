@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Card, CardContent } from './ui';
+import { Button, Card } from './ui';
 import type { Milestone, Subtask } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -64,21 +64,21 @@ export function MilestoneCard({
   };
 
   return (
-    <Card variant="bordered" className="">
+    <Card variant="bordered" className="!p-0">
       {/* Collapsed Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full text-left"
       >
-        <div className="flex items-start gap-4 p-4">
+        <div className="flex items-center gap-3 px-3 py-2">
           {/* Step Number */}
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 mt-0.5 ${getStepColor(
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${getStepColor(
               milestone.status
             )}`}
           >
             {milestone.status === 'completed' ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             ) : (
@@ -88,14 +88,14 @@ export function MilestoneCard({
 
           {/* Title and Progress */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">
               {milestone.title}
             </h3>
             {totalSubtasks > 0 && (
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex-1 max-w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex-1 max-w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1">
                   <div
-                    className="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                    className="bg-indigo-600 h-1 rounded-full transition-all duration-300"
                     style={{ width: `${subtaskProgress}%` }}
                   />
                 </div>
@@ -108,7 +108,7 @@ export function MilestoneCard({
 
           {/* Status Badge */}
           <span
-            className={`px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 whitespace-nowrap ${getStatusColor(
+            className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 whitespace-nowrap ${getStatusColor(
               milestone.status
             )}`}
           >
@@ -117,7 +117,7 @@ export function MilestoneCard({
 
           {/* Expand/Collapse Arrow */}
           <svg
-            className={`w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0 mt-1 ${
+            className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
               isExpanded ? 'rotate-180' : ''
             }`}
             fill="none"
@@ -135,17 +135,17 @@ export function MilestoneCard({
           isExpanded ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
         }`}
       >
-        <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-700">
+        <div className="px-3 pb-3 pt-2 border-t border-gray-100 dark:border-gray-700">
           {/* Description */}
-          <p className="text-gray-600 dark:text-gray-400 mb-4">{milestone.description}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{milestone.description}</p>
 
           {/* Subtasks Checklist */}
           {totalSubtasks > 0 ? (
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="mb-3">
+              <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Tasks
               </h4>
-              <ul className="space-y-2">
+              <ul className="space-y-1.5">
                 {subtasks
                   .sort((a, b) => a.orderIndex - b.orderIndex)
                   .map((subtask) => (
@@ -193,8 +193,8 @@ export function MilestoneCard({
               </ul>
             </div>
           ) : onGenerateSubtasks ? (
-            <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                 No tasks yet. Generate AI-powered tasks to break down this milestone.
               </p>
               <Button
@@ -214,14 +214,14 @@ export function MilestoneCard({
 
           {/* Resources */}
           {milestone.resources && milestone.resources.length > 0 && (
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="mb-3">
+              <h4 className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Resources
               </h4>
-              <ul className="space-y-1">
+              <ul className="space-y-0.5">
                 {milestone.resources.map((resource, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
+                  <li key={i} className="flex items-center gap-1.5">
+                    <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
                       {resource.type}
                     </span>
                     <a
@@ -229,7 +229,7 @@ export function MilestoneCard({
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-indigo-600 hover:text-indigo-500 text-sm"
+                      className="text-indigo-600 hover:text-indigo-500 text-xs"
                     >
                       {resource.title}
                     </a>
@@ -281,7 +281,7 @@ export function MilestoneCard({
               </Button>
             )}
           </div>
-        </CardContent>
+        </div>
       </div>
     </Card>
   );
