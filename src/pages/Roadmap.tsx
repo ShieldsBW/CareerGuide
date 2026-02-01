@@ -418,6 +418,23 @@ export function Roadmap() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 Required Skills for {roadmap.target_career}
               </h2>
+
+              {/* Action buttons at top */}
+              <div className="flex flex-col gap-2 mb-4">
+                <Link to="/skills">
+                  <Button variant="outline" className="w-full">
+                    Manage Your Skills
+                  </Button>
+                </Link>
+                <Button
+                  onClick={handleRunAnalysis}
+                  isLoading={isAnalyzing}
+                  className="w-full"
+                >
+                  {isAnalyzing ? 'Analyzing...' : 'Analyze Skill Gap'}
+                </Button>
+              </div>
+
               {targetSkills.length > 0 ? (
                 <Card>
                   <CardContent>
@@ -467,14 +484,6 @@ export function Roadmap() {
                   </CardContent>
                 </Card>
               )}
-
-              <div className="mt-4">
-                <Link to="/skills">
-                  <Button variant="outline" className="w-full">
-                    Manage Your Skills
-                  </Button>
-                </Link>
-              </div>
             </div>
           </div>
         )}

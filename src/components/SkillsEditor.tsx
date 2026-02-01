@@ -100,72 +100,67 @@ export function SkillsEditor({
           <div className="space-y-3">
             {skills.map((skill) => (
               <Card key={skill.id} variant="bordered">
-                <CardContent className="py-4">
-                  <div className="flex items-center gap-4">
-                    {/* Skill Name */}
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        {skill.skillName}
-                      </h4>
-                      <p className="text-xs text-gray-500">
-                        Added {skill.source === 'manual' ? 'manually' : `via ${skill.source}`}
-                      </p>
-                    </div>
-
-                    {/* Proficiency Level */}
-                    <div className="flex items-center gap-2">
-                      {editingSkillId === skill.id ? (
-                        <select
-                          value={skill.proficiencyLevel}
-                          onChange={(e) => {
-                            onUpdateSkill(skill.id, Number(e.target.value));
-                            setEditingSkillId(null);
-                          }}
-                          onBlur={() => setEditingSkillId(null)}
-                          autoFocus
-                          className="px-3 py-1 rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                          {[1, 2, 3, 4, 5].map((level) => (
-                            <option key={level} value={level}>
-                              {level} - {PROFICIENCY_LABELS[level]}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <button
-                          onClick={() => setEditingSkillId(skill.id)}
-                          className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-1 rounded-lg transition-colors"
-                        >
-                          {/* Progress Bar */}
-                          <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((level) => (
-                              <div
-                                key={level}
-                                className={`w-4 h-2 rounded-sm ${
-                                  level <= skill.proficiencyLevel
-                                    ? 'bg-indigo-600'
-                                    : 'bg-gray-200 dark:bg-gray-700'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {PROFICIENCY_LABELS[skill.proficiencyLevel]}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-
+                <CardContent className="py-3">
+                  {/* Skill Name - full width at top */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h4 className="font-medium text-gray-900 dark:text-white line-clamp-2 flex-1">
+                      {skill.skillName}
+                    </h4>
                     {/* Delete Button */}
                     <button
                       onClick={() => onRemoveSkill(skill.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                      className="p-1 text-gray-400 active:text-red-500 transition-colors flex-shrink-0"
                       aria-label="Remove skill"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
+                  </div>
+
+                  {/* Proficiency Level - below skill name */}
+                  <div>
+                    {editingSkillId === skill.id ? (
+                      <select
+                        value={skill.proficiencyLevel}
+                        onChange={(e) => {
+                          onUpdateSkill(skill.id, Number(e.target.value));
+                          setEditingSkillId(null);
+                        }}
+                        onBlur={() => setEditingSkillId(null)}
+                        autoFocus
+                        className="w-full px-3 py-1 rounded-lg border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        {[1, 2, 3, 4, 5].map((level) => (
+                          <option key={level} value={level}>
+                            {level} - {PROFICIENCY_LABELS[level]}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <button
+                        onClick={() => setEditingSkillId(skill.id)}
+                        className="flex flex-col items-start gap-1 active:bg-gray-100 dark:active:bg-gray-700 px-2 py-1 -mx-2 rounded-lg transition-colors"
+                      >
+                        {/* Progress Bar */}
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((level) => (
+                            <div
+                              key={level}
+                              className={`w-6 h-2 rounded-sm ${
+                                level <= skill.proficiencyLevel
+                                  ? 'bg-indigo-600'
+                                  : 'bg-gray-200 dark:bg-gray-700'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        {/* Label below tick marks */}
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {PROFICIENCY_LABELS[skill.proficiencyLevel]}
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
