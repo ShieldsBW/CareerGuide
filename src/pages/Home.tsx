@@ -37,18 +37,42 @@ export function Home() {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session) {
-          // Clean up URL and redirect to onboarding
+          // Clean up URL and redirect based on whether user has roadmaps
           window.history.replaceState(null, '', window.location.pathname);
-          navigate('/onboarding');
+
+          // Check if user has existing roadmaps
+          const { data: roadmaps } = await supabase
+            .from('roadmaps')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .limit(1);
+
+          if (roadmaps && roadmaps.length > 0) {
+            navigate('/dashboard');
+          } else {
+            navigate('/onboarding');
+          }
           return;
         }
 
         // Wait for auth state change
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === 'SIGNED_IN' && session) {
             subscription.unsubscribe();
             window.history.replaceState(null, '', window.location.pathname);
-            navigate('/onboarding');
+
+            // Check if user has existing roadmaps
+            const { data: roadmaps } = await supabase
+              .from('roadmaps')
+              .select('id')
+              .eq('user_id', session.user.id)
+              .limit(1);
+
+            if (roadmaps && roadmaps.length > 0) {
+              navigate('/dashboard');
+            } else {
+              navigate('/onboarding');
+            }
           }
         });
 

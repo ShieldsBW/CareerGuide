@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button, Card, CardContent, Input } from '../components/ui';
 import { supabase } from '../lib/supabase';
 import type { OnboardingData } from '../types';
@@ -20,6 +20,7 @@ export function Onboarding() {
   const [generationStatus, setGenerationStatus] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [hasExistingRoadmaps, setHasExistingRoadmaps] = useState(false);
   const [formData, setFormData] = useState<OnboardingData>({
     currentJob: '',
     yearsExperience: 0,
@@ -66,6 +67,15 @@ export function Onboarding() {
         setUserId(session.user.id);
         setUserEmail(session.user.email || null);
         setIsCheckingAuth(false);
+
+        // Check if user has existing roadmaps
+        const { data: roadmaps } = await supabase
+          .from('roadmaps')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .limit(1);
+
+        setHasExistingRoadmaps(roadmaps !== null && roadmaps.length > 0);
       } else if (!hasAuthParams) {
         // Only redirect if we're not in the middle of OAuth
         navigate('/login?redirect=onboarding');
@@ -250,6 +260,21 @@ export function Onboarding() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <Card className="w-full max-w-2xl overflow-hidden">
+        {/* Back to Dashboard link for users with existing roadmaps */}
+        {hasExistingRoadmaps && (
+          <div className="px-4 sm:px-6 pt-4">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-500"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Dashboard
+            </Link>
+          </div>
+        )}
+
         {/* Progress Steps - Fixed overflow */}
         <div className="px-4 sm:px-6 pt-6">
           <div className="flex items-center justify-between mb-8 overflow-hidden">
