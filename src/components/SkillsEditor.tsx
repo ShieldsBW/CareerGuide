@@ -40,9 +40,12 @@ export function SkillsEditor({
       {/* Add New Skill */}
       <Card>
         <CardContent>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Add New Skill
           </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Proficiency scale: 1 (Beginner) → 5 (Expert)
+          </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <Input

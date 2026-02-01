@@ -353,6 +353,17 @@ export function Skills() {
                 </Button>
               </div>
 
+              {/* Scale indicator */}
+              <div className="flex items-center justify-end gap-2 mb-3 pr-10">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Beginner</span>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((level) => (
+                    <div key={level} className="w-8 text-center text-xs text-gray-400">{level}</div>
+                  ))}
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Expert</span>
+              </div>
+
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {importedSkills.map((skillName) => (
                   <div
@@ -368,7 +379,7 @@ export function Skills() {
                           key={level}
                           onClick={() => handleAddImportedSkill(skillName, level)}
                           className="w-8 h-8 rounded-full border-2 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-medium text-gray-600 dark:text-gray-300 transition-colors"
-                          title={`Level ${level}`}
+                          title={['Beginner', 'Elementary', 'Intermediate', 'Advanced', 'Expert'][level - 1]}
                         >
                           {level}
                         </button>
