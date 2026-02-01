@@ -55,6 +55,10 @@ export function Onboarding() {
 
   // Check if user is logged in - redirect to login if not
   useEffect(() => {
+    // Check if we're returning from OAuth (tokens in URL hash)
+    const hasAuthParams = window.location.hash.includes('access_token') ||
+                          window.location.search.includes('code=');
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -62,19 +66,25 @@ export function Onboarding() {
         setUserId(session.user.id);
         setUserEmail(session.user.email || null);
         setIsCheckingAuth(false);
-      } else {
-        // Not logged in - redirect to login
+      } else if (!hasAuthParams) {
+        // Only redirect if we're not in the middle of OAuth
         navigate('/login?redirect=onboarding');
       }
+      // If hasAuthParams but no session yet, wait for onAuthStateChange
     };
 
     checkAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes (especially important for OAuth callback)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         setUserId(session.user.id);
         setUserEmail(session.user.email || null);
+        setIsCheckingAuth(false);
+        // Clean up the URL hash after successful auth
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
       } else if (event === 'SIGNED_OUT') {
         navigate('/login?redirect=onboarding');
       }
