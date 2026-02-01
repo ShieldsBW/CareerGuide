@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, CardContent, Input } from '../components/ui';
+import { supabase } from '../lib/supabase';
 import type { OnboardingData } from '../types';
 
 const STEPS = [
@@ -14,6 +15,9 @@ export function Onboarding() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState('');
+  const [generationStatus, setGenerationStatus] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState<OnboardingData>({
     currentJob: '',
     yearsExperience: 0,
@@ -25,6 +29,15 @@ export function Onboarding() {
     targetCareer: '',
     targetTimeframe: '12 months',
   });
+
+  // Check if user is logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+      }
+    });
+  }, []);
 
   const updateField = <K extends keyof OnboardingData>(
     field: K,
@@ -47,13 +60,114 @@ export function Onboarding() {
 
   const handleSubmit = async () => {
     setIsGenerating(true);
+    setError('');
+    setGenerationStatus('Connecting to AI...');
 
-    // In production, this would call the Supabase Edge Function
-    // For now, simulate a delay and redirect to dashboard
-    setTimeout(() => {
+    try {
+      // If not logged in, prompt to sign up first
+      if (!userId) {
+        // Save form data to session storage for after login
+        sessionStorage.setItem('onboardingData', JSON.stringify(formData));
+        navigate('/login?redirect=onboarding');
+        return;
+      }
+
+      // Update user profile
+      setGenerationStatus('Saving your profile...');
+      await supabase.from('user_profiles').upsert({
+        id: userId,
+        current_job: formData.currentJob,
+        years_experience: formData.yearsExperience,
+        education_level: formData.education,
+        income_bracket: formData.incomeBracket,
+        available_hours: formData.availableHours,
+        learning_style: formData.learningStyle,
+        updated_at: new Date().toISOString(),
+      });
+
+      // Call Edge Function to generate roadmap
+      setGenerationStatus('AI is researching your career path...');
+      const { data, error: fnError } = await supabase.functions.invoke('generate-roadmap', {
+        body: {
+          userProfile: {
+            currentJob: formData.currentJob,
+            yearsExperience: formData.yearsExperience,
+            education: formData.education,
+            availableHours: formData.availableHours,
+            learningStyle: formData.learningStyle,
+          },
+          targetCareer: formData.targetCareer,
+          timeframe: formData.targetTimeframe,
+        },
+      });
+
+      if (fnError) {
+        throw new Error(fnError.message || 'Failed to generate roadmap');
+      }
+
+      setGenerationStatus('Creating your personalized roadmap...');
+
+      // Save roadmap to database
+      const { data: roadmapData, error: roadmapError } = await supabase
+        .from('roadmaps')
+        .insert({
+          user_id: userId,
+          target_career: formData.targetCareer,
+          target_date: calculateTargetDate(formData.targetTimeframe),
+          ai_generated_plan: data.roadmap,
+          citations: data.citations || [],
+        })
+        .select()
+        .single();
+
+      if (roadmapError) {
+        throw new Error('Failed to save roadmap');
+      }
+
+      // Save milestones
+      if (data.roadmap?.milestones && Array.isArray(data.roadmap.milestones)) {
+        setGenerationStatus('Setting up your milestones...');
+
+        const milestones = data.roadmap.milestones.map((m: any, index: number) => ({
+          roadmap_id: roadmapData.id,
+          title: m.title || `Milestone ${index + 1}`,
+          description: m.description || '',
+          order_index: m.orderIndex ?? index,
+          status: 'pending',
+          resources: m.resources || [],
+        }));
+
+        await supabase.from('milestones').insert(milestones);
+      }
+
+      setGenerationStatus('Done! Redirecting to your roadmap...');
+
+      // Redirect to the new roadmap
+      setTimeout(() => {
+        navigate(`/roadmap/${roadmapData.id}`);
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error generating roadmap:', err);
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setIsGenerating(false);
-      navigate('/dashboard');
-    }, 2000);
+      setGenerationStatus('');
+    }
+  };
+
+  // Calculate target date from timeframe string
+  const calculateTargetDate = (timeframe: string): string => {
+    const now = new Date();
+    let months = 12; // default
+
+    if (timeframe.includes('3')) months = 3;
+    else if (timeframe.includes('6')) months = 6;
+    else if (timeframe.includes('12')) months = 12;
+    else if (timeframe.includes('18')) months = 18;
+    else if (timeframe.includes('24') || timeframe.includes('2 year')) months = 24;
+
+    now.setMonth(now.getMonth() + months);
+    return now.toISOString().split('T')[0];
   };
 
   return (
@@ -91,6 +205,13 @@ export function Onboarding() {
         </div>
 
         <CardContent className="pt-4">
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
           {/* Step 1: Current Situation */}
           {currentStep === 1 && (
             <div className="space-y-4">
@@ -263,12 +384,34 @@ export function Onboarding() {
             </div>
           )}
 
+          {/* Generation Status */}
+          {isGenerating && generationStatus && (
+            <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+              <div className="flex items-center">
+                <svg
+                  className="animate-spin h-5 w-5 text-indigo-600 mr-3"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <span className="text-indigo-700 dark:text-indigo-300">{generationStatus}</span>
+              </div>
+            </div>
+          )}
+
           {/* Navigation Buttons */}
           <div className="flex justify-between mt-8">
             <Button
               variant="outline"
               onClick={handleBack}
-              disabled={currentStep === 1}
+              disabled={currentStep === 1 || isGenerating}
             >
               Back
             </Button>
@@ -276,8 +419,12 @@ export function Onboarding() {
             {currentStep < 4 ? (
               <Button onClick={handleNext}>Continue</Button>
             ) : (
-              <Button onClick={handleSubmit} isLoading={isGenerating}>
-                {isGenerating ? 'Generating Roadmap...' : 'Generate My Roadmap'}
+              <Button
+                onClick={handleSubmit}
+                isLoading={isGenerating}
+                disabled={!formData.targetCareer.trim()}
+              >
+                {isGenerating ? 'Generating...' : 'Generate My Roadmap'}
               </Button>
             )}
           </div>
