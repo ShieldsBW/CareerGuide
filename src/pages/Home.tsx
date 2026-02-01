@@ -18,7 +18,7 @@ export function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/onboarding">
+            <Link to="/signup">
               <Button size="lg">Get Started Free</Button>
             </Link>
             <Link to="/login">
