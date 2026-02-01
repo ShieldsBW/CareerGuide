@@ -121,7 +121,7 @@ Include 6-10 skills with:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar',
+          model: 'sonar-pro',
           messages: [
             { role: 'user', content: skillsPrompt }
           ],
@@ -223,7 +223,7 @@ Your response must be valid JSON:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'sonar',
+          model: 'sonar-pro',
           messages: [
             { role: 'user', content: recPrompt }
           ],

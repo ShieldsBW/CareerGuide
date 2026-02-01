@@ -93,7 +93,7 @@ Create 4-6 specific, actionable subtasks that will help achieve this milestone. 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar',
+        model: 'sonar-pro',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
