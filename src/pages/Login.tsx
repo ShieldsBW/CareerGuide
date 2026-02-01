@@ -1,14 +1,28 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui';
 import { supabase } from '../lib/supabase';
 
 export function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Get redirect destination from URL params
+  const redirectTo = searchParams.get('redirect') || 'dashboard';
+  const redirectPath = redirectTo === 'onboarding' ? '/onboarding' : '/dashboard';
+
+  // Check if already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate(redirectPath);
+      }
+    });
+  }, [navigate, redirectPath]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +38,7 @@ export function Login() {
       setError(error.message);
       setIsLoading(false);
     } else {
-      navigate('/dashboard');
+      navigate(redirectPath);
     }
   };
 
@@ -32,7 +46,7 @@ export function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/CareerGuide/dashboard`,
+        redirectTo: `${window.location.origin}/CareerGuide${redirectPath}`,
       },
     });
 
@@ -45,7 +59,7 @@ export function Login() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${window.location.origin}/CareerGuide/dashboard`,
+        redirectTo: `${window.location.origin}/CareerGuide${redirectPath}`,
       },
     });
 
@@ -58,13 +72,24 @@ export function Login() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-center">Welcome Back</CardTitle>
+          <CardTitle className="text-center">
+            {redirectTo === 'onboarding' ? 'Create Your Account' : 'Welcome Back'}
+          </CardTitle>
           <p className="text-center text-gray-600 dark:text-gray-400 mt-2">
-            Sign in to continue your career journey
+            {redirectTo === 'onboarding'
+              ? 'Sign in to save your roadmap and track progress'
+              : 'Sign in to continue your career journey'}
           </p>
         </CardHeader>
 
         <CardContent>
+          {/* Coming from onboarding notice */}
+          {redirectTo === 'onboarding' && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
+              Your onboarding information has been saved. Sign in to continue generating your roadmap.
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm">
               {error}
