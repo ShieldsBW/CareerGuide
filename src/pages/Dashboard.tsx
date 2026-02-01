@@ -8,8 +8,8 @@ import type { ApiUsageSummary } from '../types';
 interface RoadmapData {
   id: string;
   user_id: string;
-  target_career: string;
-  created_at: string;
+  target_career: string | null;
+  created_at: string | null;
   milestones?: { id: string }[];
 }
 
@@ -127,14 +127,16 @@ export function Dashboard() {
 
   // Generate labels with numbers for duplicates
   const getRoadmapLabel = (roadmap: RoadmapData, index: number): string => {
-    const career = roadmap.target_career;
-    const sameCareerRoadmaps = roadmaps.filter((r) => r.target_career === career);
+    const career = roadmap.target_career || 'Untitled Roadmap';
+    const sameCareerRoadmaps = roadmaps.filter((r) => (r.target_career || '') === (roadmap.target_career || ''));
 
     if (sameCareerRoadmaps.length > 1) {
       // Find the index of this roadmap among same-career roadmaps (sorted by created_at)
-      const sortedSameCareer = [...sameCareerRoadmaps].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
+      const sortedSameCareer = [...sameCareerRoadmaps].sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateA - dateB;
+      });
       const careerIndex = sortedSameCareer.findIndex((r) => r.id === roadmap.id) + 1;
       return `${career} ${careerIndex}`;
     }
@@ -142,11 +144,15 @@ export function Dashboard() {
     return career;
   };
 
-  const formatDate = (dateString: string): string => {
+  const formatDate = (dateString: string | null | undefined): string => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '';
-    return date.toLocaleDateString();
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString();
+    } catch {
+      return '';
+    }
   };
 
   if (isLoading) {
