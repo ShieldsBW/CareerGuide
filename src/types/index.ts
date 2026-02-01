@@ -56,7 +56,7 @@ export interface OnboardingData {
   // Step 1: Current situation
   currentJob: string;
   yearsExperience: number;
-  education: string;
+  education: string[]; // Multiple selections allowed
 
   // Step 2: Resources
   incomeBracket: string;

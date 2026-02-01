@@ -23,7 +23,7 @@ export function Onboarding() {
   const [formData, setFormData] = useState<OnboardingData>({
     currentJob: '',
     yearsExperience: 0,
-    education: '',
+    education: [],
     incomeBracket: '',
     monthlySavings: '',
     availableHours: 10,
@@ -31,6 +31,27 @@ export function Onboarding() {
     targetCareer: '',
     targetTimeframe: '12 months',
   });
+
+  const EDUCATION_OPTIONS = [
+    { value: 'high_school', label: 'High School Diploma' },
+    { value: 'some_college', label: 'Some College' },
+    { value: 'associates', label: "Associate's Degree" },
+    { value: 'bachelors', label: "Bachelor's Degree" },
+    { value: 'masters', label: "Master's Degree" },
+    { value: 'phd', label: 'PhD/Doctorate' },
+    { value: 'trade', label: 'Trade/Vocational Certificate' },
+    { value: 'bootcamp', label: 'Bootcamp/Short Course' },
+    { value: 'self_taught', label: 'Self-Taught' },
+  ];
+
+  const toggleEducation = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      education: prev.education.includes(value)
+        ? prev.education.filter((e) => e !== value)
+        : [...prev.education, value],
+    }));
+  };
 
   // Check if user is logged in and restore saved data
   useEffect(() => {
@@ -139,7 +160,7 @@ export function Onboarding() {
         id: userId,
         current_job: formData.currentJob,
         years_experience: formData.yearsExperience,
-        education_level: formData.education,
+        education_level: formData.education.join(', '), // Store as comma-separated string
         income_bracket: formData.incomeBracket,
         available_hours: formData.availableHours,
         learning_style: formData.learningStyle,
@@ -153,7 +174,7 @@ export function Onboarding() {
           userProfile: {
             currentJob: formData.currentJob,
             yearsExperience: formData.yearsExperience,
-            education: formData.education,
+            education: formData.education.join(', '), // Send as readable string
             availableHours: formData.availableHours,
             learningStyle: formData.learningStyle,
           },
@@ -316,22 +337,31 @@ export function Onboarding() {
               />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Education Level
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Education (select all that apply)
                 </label>
-                <select
-                  value={formData.education}
-                  onChange={(e) => updateField('education', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select education level</option>
-                  <option value="high_school">High School</option>
-                  <option value="some_college">Some College</option>
-                  <option value="bachelors">Bachelor's Degree</option>
-                  <option value="masters">Master's Degree</option>
-                  <option value="phd">PhD/Doctorate</option>
-                  <option value="trade">Trade/Vocational</option>
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {EDUCATION_OPTIONS.map((option) => (
+                    <label
+                      key={option.value}
+                      className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                        formData.education.includes(option.value)
+                          ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.education.includes(option.value)}
+                        onChange={() => toggleEducation(option.value)}
+                        className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-900 dark:text-gray-100">
+                        {option.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           )}
