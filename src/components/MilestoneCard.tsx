@@ -64,16 +64,16 @@ export function MilestoneCard({
   };
 
   return (
-    <Card variant="bordered" className="overflow-hidden">
+    <Card variant="bordered" className="">
       {/* Collapsed Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full text-left"
       >
-        <div className="flex items-center gap-4 p-4">
+        <div className="flex items-start gap-4 p-4">
           {/* Step Number */}
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 ${getStepColor(
+            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0 mt-0.5 ${getStepColor(
               milestone.status
             )}`}
           >
@@ -88,7 +88,7 @@ export function MilestoneCard({
 
           {/* Title and Progress */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {milestone.title}
             </h3>
             {totalSubtasks > 0 && (
@@ -108,7 +108,7 @@ export function MilestoneCard({
 
           {/* Status Badge */}
           <span
-            className={`px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 ${getStatusColor(
+            className={`px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 whitespace-nowrap ${getStatusColor(
               milestone.status
             )}`}
           >
@@ -117,7 +117,7 @@ export function MilestoneCard({
 
           {/* Expand/Collapse Arrow */}
           <svg
-            className={`w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
+            className={`w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0 mt-1 ${
               isExpanded ? 'rotate-180' : ''
             }`}
             fill="none"
@@ -131,8 +131,8 @@ export function MilestoneCard({
 
       {/* Expanded Content */}
       <div
-        className={`transition-all duration-300 ease-in-out overflow-hidden ${
-          isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'
+        className={`transition-all duration-300 ease-in-out ${
+          isExpanded ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
         }`}
       >
         <CardContent className="pt-0 border-t border-gray-100 dark:border-gray-700">
