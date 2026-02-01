@@ -56,14 +56,33 @@ Your response must be valid JSON with this exact structure:
           "provider": "Provider name",
           "estimatedHours": 20
         }
+      ],
+      "subtasks": [
+        {
+          "title": "Specific action item",
+          "description": "Brief description of what to do"
+        }
       ]
+    }
+  ],
+  "requiredSkills": [
+    {
+      "skillName": "Skill name",
+      "requiredLevel": 4,
+      "priority": "critical|high|medium|low"
     }
   ],
   "skillGaps": ["skill1", "skill2"],
   "salaryExpectation": { "entry": 50000, "mid": 75000, "senior": 100000 }
 }
 
-Include 5-8 milestones with specific, actionable steps. Search for current courses, certifications, and resources. Be realistic about timelines.`
+IMPORTANT:
+- Include 5-8 milestones with specific, actionable steps
+- Each milestone MUST have 3-6 subtasks that break down the milestone into concrete actions
+- Subtasks should be specific and actionable (e.g., "Complete Python basics course on Codecademy", not just "Learn Python")
+- Include 5-10 required skills with proficiency levels (1=Beginner, 5=Expert) and priority
+- Search for current courses, certifications, and resources
+- Be realistic about timelines`
 
     const userPrompt = `Create a career transition roadmap for someone with this profile:
 
@@ -81,7 +100,10 @@ Search for:
 3. Salary expectations for ${targetCareer}
 4. Realistic timeline for this career change
 
-Generate a comprehensive, milestone-based roadmap with specific resources and links.`
+Generate a comprehensive, milestone-based roadmap with:
+- Specific resources and links
+- 3-6 subtasks per milestone
+- Required skills with proficiency levels`
 
     // Call Perplexity API
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -129,30 +151,51 @@ Generate a comprehensive, milestone-based roadmap with specific resources and li
             description: 'Research the requirements and opportunities in your target field',
             orderIndex: 0,
             estimatedWeeks: 2,
-            resources: []
+            resources: [],
+            subtasks: [
+              { title: 'Research job postings for target role', description: 'Look at 10+ job postings to understand common requirements' },
+              { title: 'Identify skill gaps', description: 'Compare your current skills to job requirements' },
+              { title: 'Connect with professionals', description: 'Reach out to 3-5 people in the target role for informational interviews' }
+            ]
           },
           {
             title: 'Skill Building',
             description: 'Develop core skills needed for the role',
             orderIndex: 1,
             estimatedWeeks: 8,
-            resources: []
+            resources: [],
+            subtasks: [
+              { title: 'Enroll in foundational course', description: 'Start with a comprehensive introductory course' },
+              { title: 'Complete hands-on projects', description: 'Build at least 2 projects to apply your learning' },
+              { title: 'Join relevant communities', description: 'Participate in online forums and local meetups' }
+            ]
           },
           {
             title: 'Practice & Portfolio',
             description: 'Build practical experience and create a portfolio',
             orderIndex: 2,
             estimatedWeeks: 6,
-            resources: []
+            resources: [],
+            subtasks: [
+              { title: 'Create portfolio website', description: 'Showcase your projects and skills online' },
+              { title: 'Contribute to open source', description: 'Make contributions to relevant projects' },
+              { title: 'Document your work', description: 'Write case studies for your projects' }
+            ]
           },
           {
             title: 'Job Search',
             description: 'Apply for positions and prepare for interviews',
             orderIndex: 3,
             estimatedWeeks: 4,
-            resources: []
+            resources: [],
+            subtasks: [
+              { title: 'Update resume', description: 'Tailor resume to target role' },
+              { title: 'Practice interviews', description: 'Complete mock interviews' },
+              { title: 'Apply to positions', description: 'Submit applications to 10+ companies' }
+            ]
           }
         ],
+        requiredSkills: [],
         skillGaps: [],
         salaryExpectation: {}
       }

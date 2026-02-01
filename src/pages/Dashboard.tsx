@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../components/ui';
+import { ApiUsageDisplay } from '../components/ApiUsageDisplay';
 import { supabase } from '../lib/supabase';
-import type { Roadmap } from '../types';
+import type { Roadmap, ApiUsageSummary } from '../types';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<{ email?: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
+  const [apiUsage, setApiUsage] = useState<ApiUsageSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true);
 
   useEffect(() => {
     // Check auth status
@@ -18,6 +21,7 @@ export function Dashboard() {
       } else {
         setUser(session.user);
         loadRoadmaps(session.user.id);
+        loadApiUsage(session.user.id);
       }
     });
 
@@ -47,6 +51,44 @@ export function Dashboard() {
     }
   };
 
+  const loadApiUsage = async (userId: string) => {
+    try {
+      // Get first day of current month
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+      const { data, error } = await supabase
+        .from('api_usage')
+        .select('operation, credits_used')
+        .eq('user_id', userId)
+        .gte('created_at', firstDayOfMonth);
+
+      if (error) throw error;
+
+      // Aggregate by operation
+      const aggregated = (data || []).reduce((acc, item) => {
+        const existing = acc.find((a) => a.operation === item.operation);
+        if (existing) {
+          existing.totalCredits += item.credits_used;
+          existing.usageCount += 1;
+        } else {
+          acc.push({
+            operation: item.operation,
+            totalCredits: item.credits_used,
+            usageCount: 1,
+          });
+        }
+        return acc;
+      }, [] as ApiUsageSummary[]);
+
+      setApiUsage(aggregated);
+    } catch (error) {
+      console.error('Error loading API usage:', error);
+    } finally {
+      setIsLoadingUsage(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/');
@@ -65,9 +107,20 @@ export function Dashboard() {
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-indigo-600">CareerGuide</h1>
+          <div className="flex items-center gap-6">
+            <h1 className="text-2xl font-bold text-indigo-600">CareerGuide</h1>
+            <nav className="hidden md:flex items-center gap-4">
+              <span className="text-indigo-600 font-medium">Dashboard</span>
+              <Link
+                to="/skills"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+              >
+                Skills
+              </Link>
+            </nav>
+          </div>
           <div className="flex items-center gap-4">
-            <span className="text-gray-600 dark:text-gray-300">{user?.email}</span>
+            <span className="text-gray-600 dark:text-gray-300 hidden sm:inline">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={handleSignOut}>
               Sign Out
             </Button>
@@ -84,6 +137,11 @@ export function Dashboard() {
           <Link to="/onboarding">
             <Button>Create New Roadmap</Button>
           </Link>
+        </div>
+
+        {/* API Usage */}
+        <div className="mb-8">
+          <ApiUsageDisplay usage={apiUsage} isLoading={isLoadingUsage} />
         </div>
 
         {roadmaps.length === 0 ? (

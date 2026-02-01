@@ -5,3 +5,4 @@ export { AuthCallback } from './AuthCallback';
 export { Dashboard } from './Dashboard';
 export { Onboarding } from './Onboarding';
 export { Roadmap } from './Roadmap';
+export { Skills } from './Skills';
