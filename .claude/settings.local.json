@@ -5,7 +5,22 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git push)",
+      "Bash(node:*)",
+      "Bash(npm --version:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh api:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(npx supabase:*)",
+      "Bash(gh secret set:*)",
+      "Bash(SUPABASE_ACCESS_TOKEN=sbp_5a58e15c8fe9cc6a2941e5050c1b5f3510fdd6b9 npx supabase:*)"
     ]
   }
 }

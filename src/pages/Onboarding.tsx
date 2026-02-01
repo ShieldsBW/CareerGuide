@@ -306,9 +306,13 @@ export function Onboarding() {
               <Input
                 label="Years of Experience"
                 type="number"
-                value={formData.yearsExperience}
-                onChange={(e) => updateField('yearsExperience', parseInt(e.target.value) || 0)}
+                value={formData.yearsExperience === 0 ? '' : formData.yearsExperience.toString()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateField('yearsExperience', val === '' ? 0 : parseInt(val, 10) || 0);
+                }}
                 min={0}
+                placeholder="0"
               />
 
               <div>
