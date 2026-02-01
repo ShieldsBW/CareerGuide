@@ -15,8 +15,8 @@ export function Onboarding() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
   const [generationStatus, setGenerationStatus] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -53,72 +53,35 @@ export function Onboarding() {
     }));
   };
 
-  // Check if user is logged in and restore saved data
+  // Check if user is logged in - redirect to login if not
   useEffect(() => {
-    const initializeOnboarding = async () => {
+    const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
         setUserId(session.user.id);
         setUserEmail(session.user.email || null);
-
-        // Check if returning from login with saved data
-        const savedData = sessionStorage.getItem('onboardingData');
-        const savedStep = sessionStorage.getItem('onboardingStep');
-
-        if (savedData) {
-          try {
-            const parsed = JSON.parse(savedData);
-            setFormData(parsed);
-            // Go to step 4 (where they left off)
-            setCurrentStep(savedStep ? parseInt(savedStep) : 4);
-            setSuccessMessage('Welcome back! Your account is ready. Continue where you left off.');
-
-            // Clear after restoring
-            sessionStorage.removeItem('onboardingData');
-            sessionStorage.removeItem('onboardingStep');
-
-            // Clear success message after 5 seconds
-            setTimeout(() => setSuccessMessage(''), 5000);
-          } catch (e) {
-            console.error('Failed to restore saved data:', e);
-          }
-        }
+        setIsCheckingAuth(false);
+      } else {
+        // Not logged in - redirect to login
+        navigate('/login?redirect=onboarding');
       }
     };
 
-    initializeOnboarding();
+    checkAuth();
 
-    // Listen for auth changes (e.g., after OAuth redirect)
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         setUserId(session.user.id);
         setUserEmail(session.user.email || null);
-
-        // Restore saved data after sign in
-        const savedData = sessionStorage.getItem('onboardingData');
-        const savedStep = sessionStorage.getItem('onboardingStep');
-
-        if (savedData) {
-          try {
-            const parsed = JSON.parse(savedData);
-            setFormData(parsed);
-            setCurrentStep(savedStep ? parseInt(savedStep) : 4);
-            setSuccessMessage('Account created successfully! Continue to generate your roadmap.');
-
-            sessionStorage.removeItem('onboardingData');
-            sessionStorage.removeItem('onboardingStep');
-
-            setTimeout(() => setSuccessMessage(''), 5000);
-          } catch (e) {
-            console.error('Failed to restore saved data:', e);
-          }
-        }
+      } else if (event === 'SIGNED_OUT') {
+        navigate('/login?redirect=onboarding');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const updateField = <K extends keyof OnboardingData>(
     field: K,
@@ -140,20 +103,16 @@ export function Onboarding() {
   };
 
   const handleSubmit = async () => {
+    if (!userId) {
+      navigate('/login?redirect=onboarding');
+      return;
+    }
+
     setIsGenerating(true);
     setError('');
     setGenerationStatus('Connecting to AI...');
 
     try {
-      // If not logged in, prompt to sign up first
-      if (!userId) {
-        // Save form data and current step to session storage for after login
-        sessionStorage.setItem('onboardingData', JSON.stringify(formData));
-        sessionStorage.setItem('onboardingStep', currentStep.toString());
-        navigate('/login?redirect=onboarding');
-        return;
-      }
-
       // Update user profile
       setGenerationStatus('Saving your profile...');
       await supabase.from('user_profiles').upsert({
@@ -252,6 +211,32 @@ export function Onboarding() {
     return now.toISOString().split('T')[0];
   };
 
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-12 text-center">
+            <svg
+              className="animate-spin h-10 w-10 text-indigo-600 mx-auto mb-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <p className="text-gray-600 dark:text-gray-400">Checking authentication...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <Card className="w-full max-w-2xl overflow-hidden">
@@ -291,13 +276,6 @@ export function Onboarding() {
                 </svg>
                 <span>Signed in as <strong>{userEmail}</strong></span>
               </div>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {successMessage && (
-            <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm">
-              {successMessage}
             </div>
           )}
 
@@ -487,30 +465,15 @@ export function Onboarding() {
                 </select>
               </div>
 
-              {/* Show sign-in prompt if not logged in */}
-              {!userId && (
-                <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-lg mt-4 border border-amber-200 dark:border-amber-800">
-                  <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-2">
-                    Sign in required
-                  </h4>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    You'll need to sign in or create an account to generate and save your roadmap.
-                    Don't worry - your information will be saved!
-                  </p>
-                </div>
-              )}
-
-              {userId && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg mt-4">
-                  <h4 className="font-medium text-indigo-900 dark:text-indigo-100 mb-2">
-                    Ready to generate your roadmap?
-                  </h4>
-                  <p className="text-sm text-indigo-700 dark:text-indigo-300">
-                    Our AI will search for current job requirements, training resources,
-                    and create a personalized step-by-step plan for you.
-                  </p>
-                </div>
-              )}
+              <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-lg mt-4">
+                <h4 className="font-medium text-indigo-900 dark:text-indigo-100 mb-2">
+                  Ready to generate your roadmap?
+                </h4>
+                <p className="text-sm text-indigo-700 dark:text-indigo-300">
+                  Our AI will search for current job requirements, training resources,
+                  and create a personalized step-by-step plan for you.
+                </p>
+              </div>
             </div>
           )}
 
@@ -554,7 +517,7 @@ export function Onboarding() {
                 isLoading={isGenerating}
                 disabled={!formData.targetCareer.trim()}
               >
-                {isGenerating ? 'Generating...' : userId ? 'Generate My Roadmap' : 'Sign In & Generate'}
+                {isGenerating ? 'Generating...' : 'Generate My Roadmap'}
               </Button>
             )}
           </div>
