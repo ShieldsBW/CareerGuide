@@ -1,7 +1,81 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui';
+import { supabase } from '../lib/supabase';
 
 export function Home() {
+  const navigate = useNavigate();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    // Check if we have auth tokens in URL (OAuth callback landed here)
+    const hasAuthParams = window.location.hash.includes('access_token') ||
+                          window.location.search.includes('code=');
+
+    const handleAuth = async () => {
+      if (hasAuthParams) {
+        // We have auth tokens, let Supabase process them
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session) {
+          // Clean up URL and redirect to onboarding
+          window.history.replaceState(null, '', window.location.pathname);
+          navigate('/onboarding');
+          return;
+        }
+
+        // Wait for auth state change
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            subscription.unsubscribe();
+            window.history.replaceState(null, '', window.location.pathname);
+            navigate('/onboarding');
+          }
+        });
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          subscription.unsubscribe();
+          setIsCheckingAuth(false);
+        }, 5000);
+      } else {
+        // No auth params, check if already logged in
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          navigate('/dashboard');
+        } else {
+          setIsCheckingAuth(false);
+        }
+      }
+    };
+
+    handleAuth();
+  }, [navigate]);
+
+  // Show loading while processing auth
+  if (isCheckingAuth && (window.location.hash.includes('access_token') || window.location.search.includes('code='))) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <svg
+            className="animate-spin h-10 w-10 text-indigo-600 mx-auto mb-4"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <p className="text-gray-600 dark:text-gray-400">Completing sign in...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
