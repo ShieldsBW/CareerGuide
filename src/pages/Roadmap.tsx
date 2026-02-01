@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Button, Card, CardContent } from '../components/ui';
 import { MilestoneCard } from '../components/MilestoneCard';
-import { SkillGapAnalysis } from '../components/SkillGapAnalysis';
 import { supabase } from '../lib/supabase';
 import type { Milestone, Subtask, SkillGapAnalysis as SkillGapAnalysisType, TargetRoleSkill, Citation } from '../types';
 
@@ -29,6 +28,7 @@ export function Roadmap() {
   const [activeTab, setActiveTab] = useState<TabType>('milestones');
   const [generatingSubtasksFor, setGeneratingSubtasksFor] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [skillsExpanded, setSkillsExpanded] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -400,120 +400,103 @@ export function Roadmap() {
             </div>
           </>
         ) : (
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Skill Gap Analysis */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Skill Gap Analysis
-              </h2>
-              <SkillGapAnalysis
-                analysis={skillGapAnalysis}
-                onRunAnalysis={handleRunAnalysis}
+          <div className="max-w-xl mx-auto">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Skill Gap Analysis
+            </h2>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2 mb-4">
+              <Link to="/skills">
+                <Button variant="outline" className="w-full">
+                  Manage Your Skills
+                </Button>
+              </Link>
+              <Button
+                onClick={handleRunAnalysis}
                 isLoading={isAnalyzing}
-              />
+                className="w-full"
+              >
+                {isAnalyzing ? 'Analyzing...' : 'Analyze Skill Gap'}
+              </Button>
             </div>
 
-            {/* Target Skills */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Required Skills for {roadmap.target_career}
-              </h2>
-
-              {/* Action buttons at top */}
-              <div className="flex flex-col gap-2 mb-4">
-                <Link to="/skills">
-                  <Button variant="outline" className="w-full">
-                    Manage Your Skills
-                  </Button>
-                </Link>
-                <Button
-                  onClick={handleRunAnalysis}
-                  isLoading={isAnalyzing}
-                  className="w-full"
+            {/* Collapsible Required Skills */}
+            {targetSkills.length > 0 && (
+              <div className="mt-4">
+                <button
+                  onClick={() => setSkillsExpanded(!skillsExpanded)}
+                  className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg active:bg-gray-100 dark:active:bg-gray-700 transition-colors"
                 >
-                  {isAnalyzing ? 'Analyzing...' : 'Analyze Skill Gap'}
-                </Button>
-              </div>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    Required Skills for {roadmap.target_career} ({targetSkills.length})
+                  </span>
+                  <svg
+                    className={`w-5 h-5 text-gray-500 transition-transform ${skillsExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
-              {targetSkills.length > 0 ? (
-                <Card>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {targetSkills
-                        .sort((a, b) => {
-                          const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-                          return priorityOrder[a.priority] - priorityOrder[b.priority];
-                        })
-                        .map((skill) => (
-                          <div
-                            key={skill.id}
-                            className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {skill.skillName}
-                              </span>
-                              <span
-                                className={`px-2 py-0.5 text-xs rounded-full ${
-                                  skill.priority === 'critical'
-                                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                    : skill.priority === 'high'
-                                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                                    : skill.priority === 'medium'
-                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                                    : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                }`}
-                              >
-                                {skill.priority}
+                {skillsExpanded && (
+                  <Card className="mt-2">
+                    <CardContent>
+                      <div className="space-y-3">
+                        {targetSkills
+                          .sort((a, b) => {
+                            const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+                            return priorityOrder[a.priority] - priorityOrder[b.priority];
+                          })
+                          .map((skill) => (
+                            <div
+                              key={skill.id}
+                              className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-900 dark:text-white">
+                                  {skill.skillName}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 text-xs rounded-full ${
+                                    skill.priority === 'critical'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                      : skill.priority === 'high'
+                                      ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                      : skill.priority === 'medium'
+                                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                      : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  }`}
+                                >
+                                  {skill.priority}
+                                </span>
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                Level {skill.requiredLevel}/5
                               </span>
                             </div>
-                            <span className="text-sm text-gray-500">
-                              Level {skill.requiredLevel}/5
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card variant="bordered">
-                  <CardContent className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">
-                      No required skills defined yet. Run a skill gap analysis to identify required skills.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {targetSkills.length === 0 && (
+              <Card variant="bordered" className="mt-4">
+                <CardContent className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No required skills defined yet. Run a skill gap analysis to identify required skills.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
-        {/* Citations */}
-        {roadmap.citations && roadmap.citations.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Sources
-            </h3>
-            <Card variant="bordered">
-              <CardContent>
-                <ul className="space-y-2">
-                  {roadmap.citations.map((citation, i) => (
-                    <li key={i}>
-                      <a
-                        href={citation.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:text-indigo-500 text-sm"
-                      >
-                        [{i + 1}] {citation.title}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </main>
     </div>
   );
