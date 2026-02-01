@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-// @ts-ignore - pdf-parse types
-import pdf from 'https://esm.sh/pdf-parse@1.1.1'
+import { getDocumentProxy } from 'https://esm.sh/unpdf@0.12.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,14 +49,29 @@ serve(async (req) => {
 
     console.log('Processing PDF:', fileName || 'unnamed.pdf')
 
-    // Decode base64 to buffer
-    const pdfBuffer = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0))
+    // Decode base64 to Uint8Array
+    const binaryString = atob(pdfBase64)
+    const pdfBuffer = new Uint8Array(binaryString.length)
+    for (let i = 0; i < binaryString.length; i++) {
+      pdfBuffer[i] = binaryString.charCodeAt(i)
+    }
 
-    // Extract text from PDF
+    // Extract text from PDF using unpdf
     let pdfText = ''
     try {
-      const pdfData = await pdf(pdfBuffer)
-      pdfText = pdfData.text
+      const pdf = await getDocumentProxy(pdfBuffer)
+      const textParts: string[] = []
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const textContent = await page.getTextContent()
+        const pageText = textContent.items
+          .map((item: any) => item.str || '')
+          .join(' ')
+        textParts.push(pageText)
+      }
+
+      pdfText = textParts.join('\n\n')
       console.log('Extracted text length:', pdfText.length)
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError)

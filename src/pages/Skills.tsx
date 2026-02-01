@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Button, Card, CardContent, Input } from '../components/ui';
+import { Button, Card, CardContent } from '../components/ui';
 import { SkillsEditor } from '../components/SkillsEditor';
 import { supabase } from '../lib/supabase';
 import type { UserSkill } from '../types';
@@ -10,11 +10,9 @@ export function Skills() {
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [skills, setSkills] = useState<UserSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [linkedinUrl, setLinkedinUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importedSkills, setImportedSkills] = useState<string[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
-  const [importSource, setImportSource] = useState<'linkedin' | 'pdf'>('pdf');
 
   useEffect(() => {
     // Check auth status
@@ -154,46 +152,8 @@ export function Skills() {
     navigate('/');
   };
 
-  const handleLinkedInImport = async () => {
-    if (!linkedinUrl.trim()) return;
-
-    setIsImporting(true);
-    setImportError(null);
-    setImportedSkills([]);
-    setImportSource('linkedin');
-
-    try {
-      const response = await supabase.functions.invoke('import-linkedin-skills', {
-        body: { linkedinUrl: linkedinUrl.trim() },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to import skills');
-      }
-
-      const data = response.data;
-
-      if (!data.success) {
-        setImportError(data.error || 'Could not import skills from this profile.');
-        return;
-      }
-
-      if (data.skills && data.skills.length > 0) {
-        setImportedSkills(data.skills);
-        setLinkedinUrl('');
-      } else {
-        setImportError('No skills found on this LinkedIn profile.');
-      }
-    } catch (error: any) {
-      console.error('Error importing skills:', error);
-      setImportError(error.message || 'Failed to import skills. Please try again.');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
   const handleAddImportedSkill = async (skillName: string, proficiencyLevel: number) => {
-    await handleAddSkill(skillName, proficiencyLevel, importSource);
+    await handleAddSkill(skillName, proficiencyLevel, 'pdf');
     // Remove from imported list
     setImportedSkills((prev) => prev.filter((s) => s !== skillName));
   };
@@ -204,7 +164,7 @@ export function Skills() {
 
   const handleAddAllImported = async (proficiencyLevel: number) => {
     for (const skillName of importedSkills) {
-      await handleAddSkill(skillName, proficiencyLevel, importSource);
+      await handleAddSkill(skillName, proficiencyLevel, 'pdf');
     }
     setImportedSkills([]);
   };
@@ -226,7 +186,6 @@ export function Skills() {
     setIsImporting(true);
     setImportError(null);
     setImportedSkills([]);
-    setImportSource('pdf');
 
     try {
       // Convert file to base64
@@ -335,15 +294,8 @@ export function Skills() {
               Upload your LinkedIn PDF or resume to automatically extract your skills.
             </p>
 
-            {/* PDF Upload - Primary Option */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                <span className="font-medium text-gray-900 dark:text-white">Upload LinkedIn PDF or Resume</span>
-                <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-0.5 rounded-full">Recommended</span>
-              </div>
+            {/* PDF Upload */}
+            <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 On LinkedIn: Go to your profile → Click "More" → Select "Save to PDF"
               </p>
@@ -369,44 +321,6 @@ export function Skills() {
                   </>
                 )}
               </label>
-            </div>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 my-4">
-              <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>
-              <span className="text-xs text-gray-500 dark:text-gray-400">OR</span>
-              <div className="flex-1 border-t border-gray-200 dark:border-gray-700"></div>
-            </div>
-
-            {/* LinkedIn URL - Secondary Option */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                </svg>
-                <span className="font-medium text-gray-900 dark:text-white">Import from LinkedIn URL</span>
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
-                Requires public profile visibility
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1">
-                  <Input
-                    placeholder="https://linkedin.com/in/your-profile"
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
-                    disabled={isImporting}
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={handleLinkedInImport}
-                  disabled={!linkedinUrl.trim() || isImporting}
-                  isLoading={isImporting}
-                >
-                  Import
-                </Button>
-              </div>
             </div>
 
             {importError && (
