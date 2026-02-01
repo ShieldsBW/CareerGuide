@@ -9,10 +9,29 @@ export function Home() {
 
   useEffect(() => {
     // Check if we have auth tokens in URL (OAuth callback landed here)
+    // Also check for encoded tokens in redirect param (Supabase sometimes does this)
     const hasAuthParams = window.location.hash.includes('access_token') ||
-                          window.location.search.includes('code=');
+                          window.location.search.includes('code=') ||
+                          window.location.search.includes('access_token') ||
+                          window.location.search.includes('redirect=');
 
     const handleAuth = async () => {
+      // If tokens are encoded in redirect param, decode and redirect
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectParam = urlParams.get('redirect');
+      if (redirectParam && redirectParam.includes('access_token')) {
+        // Decode the redirect URL and navigate to it
+        const decodedUrl = decodeURIComponent(redirectParam);
+        // Extract just the hash part with the token
+        const hashIndex = decodedUrl.indexOf('#');
+        if (hashIndex !== -1) {
+          const hashPart = decodedUrl.substring(hashIndex);
+          // Redirect to current page with the hash (triggers Supabase auth)
+          window.location.href = window.location.origin + '/CareerGuide/' + hashPart;
+          return;
+        }
+      }
+
       if (hasAuthParams) {
         // We have auth tokens, let Supabase process them
         const { data: { session } } = await supabase.auth.getSession();
