@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Home, Login, Signup, AuthCallback, Dashboard, Onboarding, Roadmap, Skills } from './pages';
+import { Home, Login, Signup, AuthCallback, Dashboard, Onboarding, Roadmap, Skills, AddSkills } from './pages';
 
 function App() {
   return (
@@ -13,6 +13,7 @@ function App() {
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/roadmap/:id" element={<Roadmap />} />
         <Route path="/skills" element={<Skills />} />
+        <Route path="/skills/add" element={<AddSkills />} />
       </Routes>
     </BrowserRouter>
   );

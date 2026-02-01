@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Card, CardContent } from '../components/ui';
-import { SkillsEditor } from '../components/SkillsEditor';
 import { supabase } from '../lib/supabase';
 import type { UserSkill } from '../types';
+import { PROFICIENCY_LABELS } from '../types';
 
 export function Skills() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const roadmapId = searchParams.get('roadmapId');
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [skills, setSkills] = useState<UserSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importedSkills, setImportedSkills] = useState<string[]>([]);
-  const [importError, setImportError] = useState<string | null>(null);
+  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check auth status
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         navigate('/login');
@@ -25,7 +24,6 @@ export function Skills() {
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         navigate('/login');
@@ -45,7 +43,6 @@ export function Skills() {
 
       if (error) throw error;
 
-      // Transform snake_case to camelCase
       const transformedSkills: UserSkill[] = (data || []).map((s) => ({
         id: s.id,
         userId: s.user_id,
@@ -64,48 +61,6 @@ export function Skills() {
     }
   };
 
-  const handleAddSkill = async (skillName: string, proficiencyLevel: number, source: string = 'manual') => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_skills')
-        .insert({
-          user_id: user.id,
-          skill_name: skillName,
-          proficiency_level: proficiencyLevel,
-          source,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === '23505') {
-          // Unique constraint violation
-          alert('You already have this skill in your profile.');
-          return;
-        }
-        throw error;
-      }
-
-      // Add to local state
-      const newSkill: UserSkill = {
-        id: data.id,
-        userId: data.user_id,
-        skillName: data.skill_name,
-        proficiencyLevel: data.proficiency_level,
-        source: data.source,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
-
-      setSkills((prev) => [...prev, newSkill].sort((a, b) => a.skillName.localeCompare(b.skillName)));
-    } catch (error) {
-      console.error('Error adding skill:', error);
-      alert('Failed to add skill. Please try again.');
-    }
-  };
-
   const handleUpdateSkill = async (skillId: string, proficiencyLevel: number) => {
     try {
       const { error } = await supabase
@@ -118,12 +73,12 @@ export function Skills() {
 
       if (error) throw error;
 
-      // Update local state
       setSkills((prev) =>
         prev.map((s) =>
           s.id === skillId ? { ...s, proficiencyLevel: proficiencyLevel as UserSkill['proficiencyLevel'] } : s
         )
       );
+      setEditingSkillId(null);
     } catch (error) {
       console.error('Error updating skill:', error);
       alert('Failed to update skill. Please try again.');
@@ -138,8 +93,6 @@ export function Skills() {
         .eq('id', skillId);
 
       if (error) throw error;
-
-      // Remove from local state
       setSkills((prev) => prev.filter((s) => s.id !== skillId));
     } catch (error) {
       console.error('Error removing skill:', error);
@@ -150,85 +103,6 @@ export function Skills() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/');
-  };
-
-  const handleAddImportedSkill = async (skillName: string, proficiencyLevel: number) => {
-    await handleAddSkill(skillName, proficiencyLevel, 'pdf');
-    // Remove from imported list
-    setImportedSkills((prev) => prev.filter((s) => s !== skillName));
-  };
-
-  const handleSkipImportedSkill = (skillName: string) => {
-    setImportedSkills((prev) => prev.filter((s) => s !== skillName));
-  };
-
-  const handleAddAllImported = async (proficiencyLevel: number) => {
-    for (const skillName of importedSkills) {
-      await handleAddSkill(skillName, proficiencyLevel, 'pdf');
-    }
-    setImportedSkills([]);
-  };
-
-  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== 'application/pdf') {
-      setImportError('Please upload a PDF file.');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setImportError('File size must be less than 10MB.');
-      return;
-    }
-
-    setIsImporting(true);
-    setImportError(null);
-    setImportedSkills([]);
-
-    try {
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          // Remove data URL prefix to get just base64
-          const base64Data = result.split(',')[1];
-          resolve(base64Data);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const response = await supabase.functions.invoke('import-pdf-skills', {
-        body: { pdfBase64: base64, fileName: file.name },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to process PDF');
-      }
-
-      const data = response.data;
-
-      if (!data.success) {
-        setImportError(data.error || 'Could not extract skills from this PDF.');
-        return;
-      }
-
-      if (data.skills && data.skills.length > 0) {
-        setImportedSkills(data.skills);
-      } else {
-        setImportError('No skills found in the document.');
-      }
-    } catch (error: any) {
-      console.error('Error importing PDF:', error);
-      setImportError(error.message || 'Failed to process PDF. Please try again.');
-    } finally {
-      setIsImporting(false);
-      // Reset file input
-      event.target.value = '';
-    }
   };
 
   if (isLoading) {
@@ -248,15 +122,6 @@ export function Skills() {
             <Link to="/dashboard" className="text-2xl font-bold text-indigo-600">
               CareerGuide
             </Link>
-            <nav className="hidden md:flex items-center gap-4">
-              <Link
-                to="/dashboard"
-                className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              >
-                Dashboard
-              </Link>
-              <span className="text-indigo-600 font-medium">Skills</span>
-            </nav>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-gray-600 dark:text-gray-300 hidden sm:inline">{user?.email}</span>
@@ -268,163 +133,116 @@ export function Skills() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <Link
-            to="/dashboard"
-            className="text-indigo-600 hover:text-indigo-500 text-sm mb-2 inline-block"
-          >
-            ← Back to Dashboard
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        {/* Navigation */}
+        <div className="flex flex-col gap-2 mb-4">
+          {roadmapId ? (
+            <Link to={`/roadmap/${roadmapId}`}>
+              <Button variant="outline" className="w-full">
+                ← Back to Skill Gap Analysis
+              </Button>
+            </Link>
+          ) : (
+            <Link to="/dashboard">
+              <Button variant="outline" className="w-full">
+                ← Back to Dashboard
+              </Button>
+            </Link>
+          )}
+          <Link to="/skills/add">
+            <Button className="w-full">
+              + Add Skills
+            </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Your Skills Profile
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Track your skills and proficiency levels. This helps us provide better gap analysis and recommendations.
-          </p>
         </div>
 
-        {/* Import Skills Section */}
-        <Card className="mb-6">
-          <CardContent>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              Import Skills
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Upload your LinkedIn PDF or resume to automatically extract your skills.
-            </p>
+        {/* Skills Header */}
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            Your Skills ({skills.length})
+          </h1>
+        </div>
 
-            {/* PDF Upload */}
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                On LinkedIn: Go to your profile → Click "More" → Select "Save to PDF"
+        {/* Skills List */}
+        {skills.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                No skills added yet.
               </p>
-              <label className={`flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isImporting ? 'border-gray-300 bg-gray-50 cursor-not-allowed' : 'border-indigo-300 dark:border-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'}`}>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handlePdfUpload}
-                  disabled={isImporting}
-                  className="hidden"
-                />
-                {isImporting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600"></div>
-                    <span className="text-gray-600 dark:text-gray-400">Processing PDF...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <span className="text-indigo-600 font-medium">Click to upload PDF</span>
-                  </>
-                )}
-              </label>
-            </div>
-
-            {importError && (
-              <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Imported Skills to Review */}
-        {importedSkills.length > 0 && (
-          <Card className="mb-6 border-2 border-indigo-200 dark:border-indigo-800">
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Review Imported Skills ({importedSkills.length})
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Set your proficiency level for each skill to add it to your profile.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setImportedSkills([])}
-                >
-                  Clear All
-                </Button>
-              </div>
-
-              {/* Scale indicator */}
-              <div className="flex items-center justify-end gap-1 mb-2 pr-7 text-[10px] text-gray-400">
-                <span>Beginner</span>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <div key={level} className="w-6 text-center">{level}</div>
-                  ))}
-                </div>
-                <span>Expert</span>
-              </div>
-
-              <div className="space-y-1.5 max-h-72 overflow-y-scroll pr-1 scrollbar-thin">
-                {importedSkills.map((skillName) => (
-                  <div
-                    key={skillName}
-                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white line-clamp-2 break-words">
-                      {skillName}
-                    </span>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {[1, 2, 3, 4, 5].map((level) => (
-                        <button
-                          key={level}
-                          onClick={() => handleAddImportedSkill(skillName, level)}
-                          className="w-6 h-6 rounded-full border-2 border-indigo-300 dark:border-indigo-600 active:bg-indigo-600 active:text-white active:border-indigo-600 text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
-                        >
-                          {level}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => handleSkipImportedSkill(skillName)}
-                        className="ml-1 p-0.5 text-gray-400 active:text-red-500 transition-colors"
-                        aria-label="Skip this skill"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  Or add all skills at once with the same level:
-                </p>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <Button
-                      key={level}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddAllImported(level)}
-                    >
-                      All at Level {level}
-                    </Button>
-                  ))}
-                </div>
-              </div>
+              <Link to="/skills/add">
+                <Button>Add Your First Skill</Button>
+              </Link>
             </CardContent>
           </Card>
-        )}
+        ) : (
+          <div className="space-y-1.5">
+            {skills.map((skill) => (
+              <div
+                key={skill.id}
+                className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+              >
+                {/* Skill Name */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                    {skill.skillName}
+                  </p>
+                </div>
 
-        <SkillsEditor
-          skills={skills}
-          onAddSkill={handleAddSkill}
-          onUpdateSkill={handleUpdateSkill}
-          onRemoveSkill={handleRemoveSkill}
-          isLoading={isLoading}
-        />
+                {/* Proficiency Level */}
+                <div className="flex-shrink-0">
+                  {editingSkillId === skill.id ? (
+                    <select
+                      value={skill.proficiencyLevel}
+                      onChange={(e) => handleUpdateSkill(skill.id, Number(e.target.value))}
+                      onBlur={() => setEditingSkillId(null)}
+                      autoFocus
+                      className="px-2 py-1 rounded border bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-xs"
+                    >
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <option key={level} value={level}>
+                          {level} - {PROFICIENCY_LABELS[level]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <button
+                      onClick={() => setEditingSkillId(skill.id)}
+                      className="flex flex-col items-center active:bg-gray-100 dark:active:bg-gray-700 px-2 py-1 rounded transition-colors"
+                    >
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((level) => (
+                          <div
+                            key={level}
+                            className={`w-3 h-1.5 rounded-sm ${
+                              level <= skill.proficiencyLevel
+                                ? 'bg-indigo-600'
+                                : 'bg-gray-200 dark:bg-gray-600'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-gray-500 mt-0.5">
+                        {PROFICIENCY_LABELS[skill.proficiencyLevel]}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => handleRemoveSkill(skill.id)}
+                  className="p-1 text-gray-400 active:text-red-500 flex-shrink-0"
+                  aria-label="Remove skill"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

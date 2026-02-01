@@ -29,6 +29,7 @@ export function Roadmap() {
   const [generatingSubtasksFor, setGeneratingSubtasksFor] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
+  const [analysisExpanded, setAnalysisExpanded] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -405,9 +406,96 @@ export function Roadmap() {
               Skill Gap Analysis
             </h2>
 
+            {/* Skill Gap Analysis Results - Top Priority when available */}
+            {skillGapAnalysis && (
+              <div className="mb-4">
+                <button
+                  onClick={() => setAnalysisExpanded(!analysisExpanded)}
+                  className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
+                    skillGapAnalysis.overallReadiness >= 80
+                      ? 'bg-green-50 dark:bg-green-900/20 active:bg-green-100'
+                      : skillGapAnalysis.overallReadiness >= 60
+                      ? 'bg-yellow-50 dark:bg-yellow-900/20 active:bg-yellow-100'
+                      : 'bg-red-50 dark:bg-red-900/20 active:bg-red-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`text-2xl font-bold ${
+                      skillGapAnalysis.overallReadiness >= 80 ? 'text-green-600' :
+                      skillGapAnalysis.overallReadiness >= 60 ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {skillGapAnalysis.overallReadiness}%
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      Role Readiness
+                    </span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-500 transition-transform ${analysisExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {analysisExpanded && (
+                  <Card className="mt-2">
+                    <CardContent>
+                      {/* Critical Gaps */}
+                      {skillGapAnalysis.criticalGaps.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="font-medium text-gray-900 dark:text-white mb-2">Skills to Improve</h4>
+                          <div className="space-y-2">
+                            {skillGapAnalysis.criticalGaps.map((gap, i) => (
+                              <div key={i} className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-900 dark:text-white">{gap.skillName}</span>
+                                  <span className={`px-1.5 py-0.5 text-xs rounded ${
+                                    gap.priority === 'critical' ? 'bg-red-100 text-red-700' :
+                                    gap.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {gap.priority}
+                                  </span>
+                                </div>
+                                <span className="text-gray-500">
+                                  {gap.currentLevel} → {gap.requiredLevel}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      {skillGapAnalysis.recommendations.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white mb-2">Recommendations</h4>
+                          <ul className="space-y-1">
+                            {skillGapAnalysis.recommendations.slice(0, 5).map((rec, i) => (
+                              <li key={i} className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                                <span className="text-indigo-500">•</span>
+                                {rec}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-gray-400 mt-3">
+                        Last analyzed: {new Date(skillGapAnalysis.analyzedAt).toLocaleDateString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="flex flex-col gap-2 mb-4">
-              <Link to="/skills">
+              <Link to={`/skills?roadmapId=${id}`}>
                 <Button variant="outline" className="w-full">
                   Manage Your Skills
                 </Button>
@@ -417,7 +505,7 @@ export function Roadmap() {
                 isLoading={isAnalyzing}
                 className="w-full"
               >
-                {isAnalyzing ? 'Analyzing...' : 'Analyze Skill Gap'}
+                {isAnalyzing ? 'Analyzing...' : skillGapAnalysis ? 'Re-analyze Skills' : 'Analyze Skill Gap'}
               </Button>
             </div>
 
@@ -444,7 +532,7 @@ export function Roadmap() {
                 {skillsExpanded && (
                   <Card className="mt-2">
                     <CardContent>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {targetSkills
                           .sort((a, b) => {
                             const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -453,14 +541,14 @@ export function Roadmap() {
                           .map((skill) => (
                             <div
                               key={skill.id}
-                              className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                              className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0"
                             >
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-900 dark:text-white">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
                                   {skill.skillName}
                                 </span>
                                 <span
-                                  className={`px-2 py-0.5 text-xs rounded-full ${
+                                  className={`px-1.5 py-0.5 text-xs rounded-full ${
                                     skill.priority === 'critical'
                                       ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                       : skill.priority === 'high'
@@ -473,7 +561,7 @@ export function Roadmap() {
                                   {skill.priority}
                                 </span>
                               </div>
-                              <span className="text-sm text-gray-500">
+                              <span className="text-xs text-gray-500">
                                 Level {skill.requiredLevel}/5
                               </span>
                             </div>
@@ -485,11 +573,11 @@ export function Roadmap() {
               </div>
             )}
 
-            {targetSkills.length === 0 && (
+            {targetSkills.length === 0 && !skillGapAnalysis && (
               <Card variant="bordered" className="mt-4">
-                <CardContent className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">
-                    No required skills defined yet. Run a skill gap analysis to identify required skills.
+                <CardContent className="text-center py-6">
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Run a skill gap analysis to see how your skills compare to the requirements for {roadmap.target_career}.
                   </p>
                 </CardContent>
               </Card>
