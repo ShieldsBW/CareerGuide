@@ -59,17 +59,12 @@ serve(async (req) => {
     // Create Supabase client with service role for database operations
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // Create client with user token to get user ID
-    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    })
-
-    // Get user from token
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    // Get user from JWT token
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
 
     if (userError || !user) {
+      console.error('Auth error:', userError)
       throw new Error('Invalid authorization token')
     }
 
