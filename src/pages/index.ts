@@ -7,3 +7,4 @@ export { Onboarding } from './Onboarding';
 export { Roadmap } from './Roadmap';
 export { Skills } from './Skills';
 export { AddSkills } from './AddSkills';
+export { RateRequiredSkills } from './RateRequiredSkills';

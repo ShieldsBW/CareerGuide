@@ -201,11 +201,25 @@ export function Onboarding() {
         await supabase.from('milestones').insert(milestones);
       }
 
-      setGenerationStatus('Done! Redirecting to set up your skills...');
+      // Save required skills for the target role
+      if (data.roadmap?.requiredSkills && Array.isArray(data.roadmap.requiredSkills)) {
+        setGenerationStatus('Setting up required skills...');
 
-      // Redirect to the skills tab to prompt user to set up skills and run analysis
+        const targetSkills = data.roadmap.requiredSkills.map((s: any) => ({
+          roadmap_id: roadmapData.id,
+          skill_name: s.skillName,
+          required_level: Math.min(5, Math.max(1, s.requiredLevel || 3)),
+          priority: ['critical', 'high', 'medium', 'low'].includes(s.priority) ? s.priority : 'medium',
+        }));
+
+        await supabase.from('target_role_skills').insert(targetSkills);
+      }
+
+      setGenerationStatus('Done! Redirecting to rate your skills...');
+
+      // Redirect to the skill rating page
       setTimeout(() => {
-        navigate(`/roadmap/${roadmapData.id}?tab=skills`);
+        navigate(`/skills/rate-required?roadmapId=${roadmapData.id}`);
       }, 1000);
 
     } catch (err) {

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Home, Login, Signup, AuthCallback, Dashboard, Onboarding, Roadmap, Skills, AddSkills } from './pages';
+import { Home, Login, Signup, AuthCallback, Dashboard, Onboarding, Roadmap, Skills, AddSkills, RateRequiredSkills } from './pages';
 
 function App() {
   return (
@@ -14,6 +14,7 @@ function App() {
         <Route path="/roadmap/:id" element={<Roadmap />} />
         <Route path="/skills" element={<Skills />} />
         <Route path="/skills/add" element={<AddSkills />} />
+        <Route path="/skills/rate-required" element={<RateRequiredSkills />} />
       </Routes>
     </BrowserRouter>
   );
