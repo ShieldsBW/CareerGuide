@@ -76,40 +76,40 @@ export async function updateMilestoneStatus(
   return { error };
 }
 
-// Estimate task durations using AI
-export interface TaskForEstimation {
+// Generate daily goals using AI
+export interface TaskForGoals {
   id: string;
   title: string;
   milestoneTitle: string;
 }
 
-export interface TaskDurationEstimate {
-  id: string;
+export interface DailyGoalFromAI {
+  sourceTaskId: string;
   duration: 'short' | 'medium' | 'long';
   minutes: number;
-  totalMinutes: number;
   dailyTitle: string;
+  isPartialTask: boolean;
   reasoning: string;
 }
 
-export async function estimateTaskDurations(
-  tasks: TaskForEstimation[],
+export async function generateDailyGoals(
+  tasks: TaskForGoals[],
   targetCareer: string
-): Promise<{ estimates: TaskDurationEstimate[]; error?: string }> {
+): Promise<{ goals: DailyGoalFromAI[]; error?: string }> {
   try {
     const { data, error } = await supabase.functions.invoke('estimate-task-durations', {
       body: { tasks, targetCareer },
     });
 
     if (error) {
-      return { estimates: [], error: error.message };
+      return { goals: [], error: error.message };
     }
 
-    return { estimates: data.estimates || [] };
+    return { goals: data.goals || [] };
   } catch (err) {
     return {
-      estimates: [],
-      error: err instanceof Error ? err.message : 'Failed to estimate durations',
+      goals: [],
+      error: err instanceof Error ? err.message : 'Failed to generate daily goals',
     };
   }
 }

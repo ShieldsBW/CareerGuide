@@ -2,21 +2,18 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from './ui';
 import { supabase } from '../lib/supabase';
-import { estimateTaskDurations } from '../lib/api';
-import type { TaskForEstimation, TaskDurationEstimate } from '../lib/api';
+import { generateDailyGoals } from '../lib/api';
+import type { TaskForGoals, DailyGoalFromAI } from '../lib/api';
 
 interface DailyGoal {
   id: string;
+  sourceTaskId: string;
   title: string;
-  dailyTitle: string;
   duration: 'short' | 'medium' | 'long';
   durationLabel: string;
-  durationMinutes?: number;
-  totalMinutes?: number;
   milestoneTitle: string;
   roadmapId: string;
-  type: 'subtask' | 'milestone';
-  isMultiDay: boolean;
+  isPartialTask: boolean;
 }
 
 interface DailyGoalsProps {
@@ -24,12 +21,11 @@ interface DailyGoalsProps {
 }
 
 // Cache key for localStorage
-const DURATION_CACHE_KEY = 'dailyGoals_durationCache';
-const CACHE_EXPIRY_HOURS = 24;
+const GOALS_CACHE_KEY = 'dailyGoals_cache';
 
-interface CachedEstimates {
-  estimates: Record<string, TaskDurationEstimate>;
-  timestamp: number;
+interface CachedGoals {
+  goals: DailyGoal[];
+  date: string; // YYYY-MM-DD format
 }
 
 export function DailyGoals({ userId }: DailyGoalsProps) {
@@ -41,44 +37,38 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
     loadDailyGoals();
   }, [userId]);
 
-  // Get cached estimates from localStorage
-  const getCachedEstimates = (): Record<string, TaskDurationEstimate> => {
+  // Get today's date as YYYY-MM-DD
+  const getTodayDate = (): string => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Get cached goals if they're from today
+  const getCachedGoals = (): DailyGoal[] | null => {
     try {
-      const cached = localStorage.getItem(DURATION_CACHE_KEY);
-      if (!cached) return {};
+      const cached = localStorage.getItem(GOALS_CACHE_KEY);
+      if (!cached) return null;
 
-      const parsed: CachedEstimates = JSON.parse(cached);
-      const now = Date.now();
-      const expiryMs = CACHE_EXPIRY_HOURS * 60 * 60 * 1000;
-
-      // Check if cache is expired
-      if (now - parsed.timestamp > expiryMs) {
-        localStorage.removeItem(DURATION_CACHE_KEY);
-        return {};
+      const parsed: CachedGoals = JSON.parse(cached);
+      if (parsed.date === getTodayDate()) {
+        return parsed.goals;
       }
 
-      return parsed.estimates;
+      // Cache is stale, remove it
+      localStorage.removeItem(GOALS_CACHE_KEY);
+      return null;
     } catch {
-      return {};
+      return null;
     }
   };
 
-  // Save estimates to localStorage cache
-  const saveToCachedEstimates = (newEstimates: TaskDurationEstimate[]) => {
+  // Save goals to cache
+  const saveGoalsToCache = (goalsToCache: DailyGoal[]) => {
     try {
-      const existing = getCachedEstimates();
-      const updated: Record<string, TaskDurationEstimate> = { ...existing };
-
-      for (const est of newEstimates) {
-        updated[est.id] = est;
-      }
-
-      const cacheData: CachedEstimates = {
-        estimates: updated,
-        timestamp: Date.now(),
+      const cacheData: CachedGoals = {
+        goals: goalsToCache,
+        date: getTodayDate(),
       };
-
-      localStorage.setItem(DURATION_CACHE_KEY, JSON.stringify(cacheData));
+      localStorage.setItem(GOALS_CACHE_KEY, JSON.stringify(cacheData));
     } catch {
       // Ignore storage errors
     }
@@ -86,6 +76,14 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
 
   const loadDailyGoals = async () => {
     try {
+      // Check cache first
+      const cachedGoals = getCachedGoals();
+      if (cachedGoals && cachedGoals.length > 0) {
+        setGoals(cachedGoals);
+        setIsLoading(false);
+        return;
+      }
+
       // Get user's roadmaps
       const { data: roadmaps } = await supabase
         .from('roadmaps')
@@ -100,7 +98,7 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
       const roadmapIds = roadmaps.map(r => r.id);
       const targetCareer = roadmaps[0]?.target_career || 'professional';
 
-      // Get incomplete milestones
+      // Get incomplete milestones in order
       const { data: milestones } = await supabase
         .from('milestones')
         .select('id, title, roadmap_id, status, order_index')
@@ -114,8 +112,9 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
       }
 
       const milestoneIds = milestones.map(m => m.id);
+      const milestoneMap = new Map(milestones.map(m => [m.id, m]));
 
-      // Get incomplete subtasks
+      // Get incomplete subtasks in order
       const { data: subtasks } = await supabase
         .from('subtasks')
         .select('id, title, milestone_id, is_completed, order_index')
@@ -123,18 +122,17 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
         .eq('is_completed', false)
         .order('order_index');
 
-      // Create a map of milestone info
-      const milestoneMap = new Map(milestones.map(m => [m.id, m]));
+      if (!subtasks || subtasks.length === 0) {
+        setIsLoading(false);
+        return;
+      }
 
-      // Collect tasks for duration estimation
-      const tasksForEstimation: TaskForEstimation[] = [];
-
-      if (subtasks) {
-        for (const subtask of subtasks.slice(0, 10)) { // Limit to 10 for API efficiency
-          const milestone = milestoneMap.get(subtask.milestone_id);
-          if (!milestone) continue;
-
-          tasksForEstimation.push({
+      // Build task list for AI - prioritized by milestone order, then subtask order
+      const tasksForAI: TaskForGoals[] = [];
+      for (const milestone of milestones) {
+        const milestoneSubtasks = subtasks.filter(s => s.milestone_id === milestone.id);
+        for (const subtask of milestoneSubtasks) {
+          tasksForAI.push({
             id: subtask.id,
             title: subtask.title,
             milestoneTitle: milestone.title,
@@ -142,104 +140,45 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
         }
       }
 
-      // Get cached estimates and identify which tasks need AI estimation
-      const cachedEstimates = getCachedEstimates();
-      const uncachedTasks = tasksForEstimation.filter(t => !cachedEstimates[t.id]);
+      // Limit to first 10 tasks for API efficiency
+      const limitedTasks = tasksForAI.slice(0, 10);
 
-      // Get AI estimates for uncached tasks
-      let newEstimates: TaskDurationEstimate[] = [];
-      if (uncachedTasks.length > 0) {
-        const result = await estimateTaskDurations(uncachedTasks, targetCareer);
-        if (!result.error && result.estimates.length > 0) {
-          newEstimates = result.estimates;
-          saveToCachedEstimates(newEstimates);
-        }
+      // Get AI-generated goals
+      const result = await generateDailyGoals(limitedTasks, targetCareer);
+
+      if (result.error || result.goals.length === 0) {
+        // Fallback: create simple goals from first 3 tasks
+        const fallbackGoals = createFallbackGoals(limitedTasks, milestoneMap, roadmaps[0].id);
+        setGoals(fallbackGoals);
+        saveGoalsToCache(fallbackGoals);
+        setIsLoading(false);
+        return;
       }
 
-      // Combine cached and new estimates
-      const allEstimates: Record<string, TaskDurationEstimate> = {
-        ...cachedEstimates,
-        ...Object.fromEntries(newEstimates.map(e => [e.id, e])),
-      };
+      // Convert AI goals to DailyGoal format
+      const dailyGoals: DailyGoal[] = result.goals.map((aiGoal: DailyGoalFromAI) => {
+        const task = tasksForAI.find(t => t.id === aiGoal.sourceTaskId);
+        const subtask = subtasks.find(s => s.id === aiGoal.sourceTaskId);
+        const milestone = subtask ? milestoneMap.get(subtask.milestone_id) : null;
 
-      // Generate daily goals from subtasks with AI-estimated durations
-      const dailyGoals: DailyGoal[] = [];
-      const usedMilestones = new Set<string>();
+        return {
+          id: `${aiGoal.sourceTaskId}-${aiGoal.duration}`,
+          sourceTaskId: aiGoal.sourceTaskId,
+          title: aiGoal.dailyTitle,
+          duration: aiGoal.duration,
+          durationLabel: getDurationLabel(aiGoal.minutes),
+          milestoneTitle: task?.milestoneTitle || milestone?.title || 'Milestone',
+          roadmapId: milestone?.roadmap_id || roadmaps[0].id,
+          isPartialTask: aiGoal.isPartialTask,
+        };
+      });
 
-      if (subtasks) {
-        for (const subtask of subtasks) {
-          const milestone = milestoneMap.get(subtask.milestone_id);
-          if (!milestone) continue;
+      // Sort by duration: short, medium, long
+      const sortOrder = { short: 0, medium: 1, long: 2 };
+      dailyGoals.sort((a, b) => sortOrder[a.duration] - sortOrder[b.duration]);
 
-          // Use AI estimate if available, otherwise use keyword fallback
-          const estimate = allEstimates[subtask.id];
-          const duration = estimate?.duration || fallbackEstimateDuration(subtask.title);
-          const minutes = estimate?.minutes;
-          const totalMinutes = estimate?.totalMinutes || minutes;
-          const dailyTitle = estimate?.dailyTitle || subtask.title;
-          const isMultiDay = totalMinutes ? totalMinutes > 180 : false;
-
-          dailyGoals.push({
-            id: subtask.id,
-            title: subtask.title,
-            dailyTitle,
-            duration,
-            durationLabel: getDurationLabel(duration, minutes),
-            durationMinutes: minutes,
-            totalMinutes,
-            milestoneTitle: milestone.title,
-            roadmapId: milestone.roadmap_id,
-            type: 'subtask',
-            isMultiDay,
-          });
-
-          usedMilestones.add(milestone.id);
-        }
-      }
-
-      // If we don't have enough subtasks, add milestone-level goals
-      if (dailyGoals.length < 3) {
-        for (const milestone of milestones) {
-          if (usedMilestones.has(milestone.id)) continue;
-
-          dailyGoals.push({
-            id: milestone.id,
-            title: milestone.title,
-            dailyTitle: `Work on: ${milestone.title}`,
-            duration: 'long',
-            durationLabel: '~2 hours',
-            durationMinutes: 120,
-            totalMinutes: 120,
-            milestoneTitle: milestone.title,
-            roadmapId: milestone.roadmap_id,
-            type: 'milestone',
-            isMultiDay: false,
-          });
-
-          if (dailyGoals.length >= 6) break;
-        }
-      }
-
-      // Sort by duration and pick one of each type
-      const shortGoals = dailyGoals.filter(g => g.duration === 'short');
-      const mediumGoals = dailyGoals.filter(g => g.duration === 'medium');
-      const longGoals = dailyGoals.filter(g => g.duration === 'long');
-
-      const selectedGoals: DailyGoal[] = [];
-      if (shortGoals.length > 0) selectedGoals.push(shortGoals[0]);
-      if (mediumGoals.length > 0) selectedGoals.push(mediumGoals[0]);
-      if (longGoals.length > 0) selectedGoals.push(longGoals[0]);
-
-      // If we still need goals, fill from remaining
-      if (selectedGoals.length < 3) {
-        const remaining = dailyGoals.filter(g => !selectedGoals.includes(g));
-        for (const goal of remaining) {
-          if (selectedGoals.length >= 3) break;
-          selectedGoals.push(goal);
-        }
-      }
-
-      setGoals(selectedGoals);
+      setGoals(dailyGoals);
+      saveGoalsToCache(dailyGoals);
     } catch (error) {
       console.error('Error loading daily goals:', error);
     } finally {
@@ -247,37 +186,41 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
     }
   };
 
-  // Fallback keyword-based estimation if AI fails
-  const fallbackEstimateDuration = (title: string): 'short' | 'medium' | 'long' => {
-    const lowerTitle = title.toLowerCase();
+  // Create fallback goals if AI fails
+  const createFallbackGoals = (
+    tasks: TaskForGoals[],
+    _milestoneMap: Map<string, unknown>,
+    defaultRoadmapId: string
+  ): DailyGoal[] => {
+    const durations: Array<{ duration: 'short' | 'medium' | 'long'; minutes: number }> = [
+      { duration: 'short', minutes: 30 },
+      { duration: 'medium', minutes: 60 },
+      { duration: 'long', minutes: 120 },
+    ];
 
-    const shortKeywords = ['review', 'read', 'watch', 'check', 'list', 'outline', 'draft', 'note', 'bookmark', 'sign up', 'register', 'subscribe'];
-    if (shortKeywords.some(k => lowerTitle.includes(k))) {
-      return 'short';
-    }
-
-    const longKeywords = ['build', 'create', 'implement', 'develop', 'complete', 'finish', 'course', 'project', 'deploy', 'design', 'write'];
-    if (longKeywords.some(k => lowerTitle.includes(k))) {
-      return 'long';
-    }
-
-    return 'medium';
+    return tasks.slice(0, 3).map((task, idx) => {
+      const dur = durations[idx] || durations[0];
+      return {
+        id: `${task.id}-${dur.duration}`,
+        sourceTaskId: task.id,
+        title: task.title,
+        duration: dur.duration,
+        durationLabel: getDurationLabel(dur.minutes),
+        milestoneTitle: task.milestoneTitle,
+        roadmapId: defaultRoadmapId,
+        isPartialTask: false,
+      };
+    });
   };
 
-  const getDurationLabel = (duration: 'short' | 'medium' | 'long', minutes?: number): string => {
-    if (minutes) {
-      if (minutes < 60) {
-        return `~${minutes} min`;
-      } else {
-        const hours = Math.round(minutes / 30) / 2; // Round to nearest 0.5
-        return hours === 1 ? '~1 hour' : `~${hours} hours`;
-      }
-    }
-    // Fallback labels
-    switch (duration) {
-      case 'short': return '~30 min';
-      case 'medium': return '~1 hour';
-      case 'long': return '~2 hours';
+  const getDurationLabel = (minutes: number): string => {
+    if (minutes <= 45) {
+      return `~${minutes} min`;
+    } else if (minutes < 90) {
+      return '~1 hour';
+    } else {
+      const hours = Math.round(minutes / 60);
+      return `~${hours} hours`;
     }
   };
 
@@ -289,26 +232,14 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
     }
   };
 
-  const formatTotalTime = (minutes: number): string => {
-    if (minutes < 60) {
-      return `${minutes} min`;
-    } else if (minutes < 480) { // Less than 8 hours
-      const hours = Math.round(minutes / 60);
-      return `${hours} hour`;
-    } else {
-      // Convert to days (assuming ~4 hours of focused work per day)
-      const days = Math.round(minutes / 240);
-      return days === 1 ? '1 day' : `${days} day`;
-    }
-  };
-
   const handleMarkComplete = async (goal: DailyGoal) => {
     try {
-      if (goal.type === 'subtask') {
+      // Only mark the source subtask as complete if it's NOT a partial task
+      if (!goal.isPartialTask) {
         await supabase
           .from('subtasks')
           .update({ is_completed: true, completed_at: new Date().toISOString() })
-          .eq('id', goal.id);
+          .eq('id', goal.sourceTaskId);
       }
 
       setCompletedToday(prev => new Set([...prev, goal.id]));
@@ -323,6 +254,7 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
         <CardContent className="py-6">
           <div className="animate-pulse space-y-3">
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+            <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
             <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
             <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
           </div>
@@ -367,7 +299,7 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                     isCompleted
                       ? 'bg-green-500 border-green-500 text-white'
-                      : 'border-gray-300 dark:border-gray-600 active:border-indigo-500'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-indigo-500'
                   }`}
                 >
                   {isCompleted && (
@@ -380,7 +312,7 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${isCompleted ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
-                    {goal.dailyTitle}
+                    {goal.title}
                   </p>
                   <div className="flex items-center gap-2">
                     <Link
@@ -389,9 +321,9 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
                     >
                       {goal.milestoneTitle}
                     </Link>
-                    {goal.isMultiDay && goal.totalMinutes && (
+                    {goal.isPartialTask && (
                       <span className="text-xs text-indigo-500 dark:text-indigo-400 flex-shrink-0">
-                        (part of {formatTotalTime(goal.totalMinutes)} task)
+                        (progress)
                       </span>
                     )}
                   </div>
@@ -407,7 +339,7 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
         </div>
 
         <p className="text-xs text-gray-400 mt-3 text-center">
-          Time estimates are personalized for career changers
+          Pick a goal based on how much time you have today
         </p>
       </CardContent>
     </Card>
