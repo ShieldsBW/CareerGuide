@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Card, CardHeader, CardTitle, CardContent } from '../components/ui';
 import { ApiUsageDisplay } from '../components/ApiUsageDisplay';
+import { DailyGoals } from '../components/DailyGoals';
 import { supabase } from '../lib/supabase';
 import type { ApiUsageSummary } from '../types';
 
@@ -191,7 +192,7 @@ export function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
             Your Career Roadmaps
           </h2>
@@ -199,6 +200,13 @@ export function Dashboard() {
             <Button>Create New Roadmap</Button>
           </Link>
         </div>
+
+        {/* Daily Goals - show only if user has roadmaps */}
+        {user && roadmaps.length > 0 && (
+          <div className="mb-8">
+            <DailyGoals userId={user.id} />
+          </div>
+        )}
 
         {roadmaps.length === 0 ? (
           <Card className="text-center py-12">
