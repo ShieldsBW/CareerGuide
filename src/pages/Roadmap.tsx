@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button, Card, CardContent } from '../components/ui';
 import { MilestoneCard } from '../components/MilestoneCard';
 import { supabase } from '../lib/supabase';
@@ -21,11 +21,13 @@ interface RoadmapData {
 export function Roadmap() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as TabType) || 'milestones';
   const [roadmap, setRoadmap] = useState<RoadmapData | null>(null);
   const [targetSkills, setTargetSkills] = useState<TargetRoleSkill[]>([]);
   const [skillGapAnalysis, setSkillGapAnalysis] = useState<SkillGapAnalysisType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('milestones');
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [generatingSubtasksFor, setGeneratingSubtasksFor] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
@@ -313,12 +315,12 @@ export function Roadmap() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/skills">
+              <Link to={`/skills?roadmapId=${id}`}>
                 <Button variant="outline" size="sm">
                   My Skills
                 </Button>
               </Link>
-              <Button variant="outline" onClick={() => navigate('/dashboard')}>
+              <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
                 Edit Goal
               </Button>
             </div>

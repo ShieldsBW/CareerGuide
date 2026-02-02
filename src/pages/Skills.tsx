@@ -137,7 +137,7 @@ export function Skills() {
         {/* Navigation */}
         <div className="flex flex-col gap-2 mb-4">
           {roadmapId ? (
-            <Link to={`/roadmap/${roadmapId}`}>
+            <Link to={`/roadmap/${roadmapId}?tab=skills`}>
               <Button variant="outline" className="w-full">
                 ← Back to Skill Gap Analysis
               </Button>
