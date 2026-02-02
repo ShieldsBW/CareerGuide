@@ -75,3 +75,39 @@ export async function updateMilestoneStatus(
 
   return { error };
 }
+
+// Estimate task durations using AI
+export interface TaskForEstimation {
+  id: string;
+  title: string;
+  milestoneTitle: string;
+}
+
+export interface TaskDurationEstimate {
+  id: string;
+  duration: 'short' | 'medium' | 'long';
+  minutes: number;
+  reasoning: string;
+}
+
+export async function estimateTaskDurations(
+  tasks: TaskForEstimation[],
+  targetCareer: string
+): Promise<{ estimates: TaskDurationEstimate[]; error?: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('estimate-task-durations', {
+      body: { tasks, targetCareer },
+    });
+
+    if (error) {
+      return { estimates: [], error: error.message };
+    }
+
+    return { estimates: data.estimates || [] };
+  } catch (err) {
+    return {
+      estimates: [],
+      error: err instanceof Error ? err.message : 'Failed to estimate durations',
+    };
+  }
+}
