@@ -201,11 +201,11 @@ export function Onboarding() {
         await supabase.from('milestones').insert(milestones);
       }
 
-      setGenerationStatus('Done! Redirecting to your roadmap...');
+      setGenerationStatus('Done! Redirecting to set up your skills...');
 
-      // Redirect to the new roadmap
+      // Redirect to the skills tab to prompt user to set up skills and run analysis
       setTimeout(() => {
-        navigate(`/roadmap/${roadmapData.id}`);
+        navigate(`/roadmap/${roadmapData.id}?tab=skills`);
       }, 1000);
 
     } catch (err) {

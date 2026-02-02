@@ -31,7 +31,7 @@ export function Roadmap() {
   const [generatingSubtasksFor, setGeneratingSubtasksFor] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
-  const [analysisExpanded, setAnalysisExpanded] = useState(false);
+  const [analysisExpanded, setAnalysisExpanded] = useState(true); // Auto-expand when results exist
 
   useEffect(() => {
     if (id) {
@@ -576,11 +576,35 @@ export function Roadmap() {
             )}
 
             {targetSkills.length === 0 && !skillGapAnalysis && (
-              <Card variant="bordered" className="mt-4">
-                <CardContent className="text-center py-6">
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Run a skill gap analysis to see how your skills compare to the requirements for {roadmap.target_career}.
-                  </p>
+              <Card className="mt-4 border-2 border-indigo-200 dark:border-indigo-800">
+                <CardContent className="py-6">
+                  <div className="text-center mb-4">
+                    <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                      Get Started with Skill Analysis
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Add your skills and run an analysis to see how you compare to the requirements for {roadmap.target_career}.
+                    </p>
+                  </div>
+                  <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-medium">1</span>
+                      <span>Add your current skills</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-medium">2</span>
+                      <span>Run the skill gap analysis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-medium">3</span>
+                      <span>Get personalized recommendations</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
