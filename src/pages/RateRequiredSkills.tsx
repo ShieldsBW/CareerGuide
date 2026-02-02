@@ -50,20 +50,42 @@ export function RateRequiredSkills() {
       .eq('id', roadmapId)
       .single();
 
-    if (roadmap) {
-      setTargetCareer(roadmap.target_career);
-    }
+    const career = roadmap?.target_career || '';
+    setTargetCareer(career);
 
     // Load target skills
-    const { data: skills } = await supabase
+    let { data: skills } = await supabase
       .from('target_role_skills')
       .select('id, skill_name, required_level, priority')
       .eq('roadmap_id', roadmapId)
       .order('priority');
 
+    // If no skills found, generate them via analyze-skill-gaps
+    if (!skills || skills.length === 0) {
+      try {
+        await supabase.functions.invoke('analyze-skill-gaps', {
+          body: {
+            roadmapId,
+            targetCareer: career,
+          },
+        });
+
+        // Reload skills after generation
+        const { data: newSkills } = await supabase
+          .from('target_role_skills')
+          .select('id, skill_name, required_level, priority')
+          .eq('roadmap_id', roadmapId)
+          .order('priority');
+
+        skills = newSkills;
+      } catch (e) {
+        console.error('Failed to generate skills:', e);
+      }
+    }
+
     if (skills && skills.length > 0) {
       // Sort by priority
-      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
       const sortedSkills = skills
         .map(s => ({
           id: s.id,
@@ -71,7 +93,7 @@ export function RateRequiredSkills() {
           requiredLevel: s.required_level,
           priority: s.priority as TargetSkill['priority'],
         }))
-        .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+        .sort((a, b) => (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2));
 
       setTargetSkills(sortedSkills);
 

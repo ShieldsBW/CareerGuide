@@ -202,9 +202,10 @@ export function Onboarding() {
       }
 
       // Save required skills for the target role
-      if (data.roadmap?.requiredSkills && Array.isArray(data.roadmap.requiredSkills)) {
-        setGenerationStatus('Setting up required skills...');
+      setGenerationStatus('Setting up required skills...');
 
+      let hasSkills = false;
+      if (data.roadmap?.requiredSkills && Array.isArray(data.roadmap.requiredSkills) && data.roadmap.requiredSkills.length > 0) {
         const targetSkills = data.roadmap.requiredSkills.map((s: any) => ({
           roadmap_id: roadmapData.id,
           skill_name: s.skillName,
@@ -212,7 +213,26 @@ export function Onboarding() {
           priority: ['critical', 'high', 'medium', 'low'].includes(s.priority) ? s.priority : 'medium',
         }));
 
-        await supabase.from('target_role_skills').insert(targetSkills);
+        const { error: skillsError } = await supabase.from('target_role_skills').insert(targetSkills);
+        if (!skillsError) {
+          hasSkills = true;
+        }
+      }
+
+      // If no skills were saved, generate them via analyze-skill-gaps (which creates them if missing)
+      if (!hasSkills) {
+        setGenerationStatus('Generating required skills for this role...');
+        try {
+          await supabase.functions.invoke('analyze-skill-gaps', {
+            body: {
+              roadmapId: roadmapData.id,
+              targetCareer: formData.targetCareer,
+            },
+          });
+        } catch (e) {
+          console.error('Failed to generate skills:', e);
+          // Continue anyway - the rating page will handle missing skills
+        }
       }
 
       setGenerationStatus('Done! Redirecting to rate your skills...');
