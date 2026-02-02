@@ -8,12 +8,15 @@ import type { TaskForEstimation, TaskDurationEstimate } from '../lib/api';
 interface DailyGoal {
   id: string;
   title: string;
+  dailyTitle: string;
   duration: 'short' | 'medium' | 'long';
   durationLabel: string;
   durationMinutes?: number;
+  totalMinutes?: number;
   milestoneTitle: string;
   roadmapId: string;
   type: 'subtask' | 'milestone';
+  isMultiDay: boolean;
 }
 
 interface DailyGoalsProps {
@@ -172,16 +175,22 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
           const estimate = allEstimates[subtask.id];
           const duration = estimate?.duration || fallbackEstimateDuration(subtask.title);
           const minutes = estimate?.minutes;
+          const totalMinutes = estimate?.totalMinutes || minutes;
+          const dailyTitle = estimate?.dailyTitle || subtask.title;
+          const isMultiDay = totalMinutes ? totalMinutes > 180 : false;
 
           dailyGoals.push({
             id: subtask.id,
             title: subtask.title,
+            dailyTitle,
             duration,
             durationLabel: getDurationLabel(duration, minutes),
             durationMinutes: minutes,
+            totalMinutes,
             milestoneTitle: milestone.title,
             roadmapId: milestone.roadmap_id,
             type: 'subtask',
+            isMultiDay,
           });
 
           usedMilestones.add(milestone.id);
@@ -195,13 +204,16 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
 
           dailyGoals.push({
             id: milestone.id,
-            title: `Work on: ${milestone.title}`,
+            title: milestone.title,
+            dailyTitle: `Work on: ${milestone.title}`,
             duration: 'long',
             durationLabel: '~2 hours',
             durationMinutes: 120,
+            totalMinutes: 120,
             milestoneTitle: milestone.title,
             roadmapId: milestone.roadmap_id,
             type: 'milestone',
+            isMultiDay: false,
           });
 
           if (dailyGoals.length >= 6) break;
@@ -274,6 +286,19 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
       case 'short': return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
       case 'medium': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300';
       case 'long': return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300';
+    }
+  };
+
+  const formatTotalTime = (minutes: number): string => {
+    if (minutes < 60) {
+      return `${minutes} min`;
+    } else if (minutes < 480) { // Less than 8 hours
+      const hours = Math.round(minutes / 60);
+      return `${hours} hour`;
+    } else {
+      // Convert to days (assuming ~4 hours of focused work per day)
+      const days = Math.round(minutes / 240);
+      return days === 1 ? '1 day' : `${days} day`;
     }
   };
 
@@ -355,14 +380,21 @@ export function DailyGoals({ userId }: DailyGoalsProps) {
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${isCompleted ? 'line-through text-gray-400' : 'text-gray-900 dark:text-white'}`}>
-                    {goal.title}
+                    {goal.dailyTitle}
                   </p>
-                  <Link
-                    to={`/roadmap/${goal.roadmapId}`}
-                    className="text-xs text-gray-500 hover:text-indigo-600 truncate block"
-                  >
-                    {goal.milestoneTitle}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/roadmap/${goal.roadmapId}`}
+                      className="text-xs text-gray-500 hover:text-indigo-600 truncate"
+                    >
+                      {goal.milestoneTitle}
+                    </Link>
+                    {goal.isMultiDay && goal.totalMinutes && (
+                      <span className="text-xs text-indigo-500 dark:text-indigo-400 flex-shrink-0">
+                        (part of {formatTotalTime(goal.totalMinutes)} task)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Duration Badge */}

@@ -87,6 +87,8 @@ export interface TaskDurationEstimate {
   id: string;
   duration: 'short' | 'medium' | 'long';
   minutes: number;
+  totalMinutes: number;
+  dailyTitle: string;
   reasoning: string;
 }
 
