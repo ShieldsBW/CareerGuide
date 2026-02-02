@@ -29,8 +29,8 @@ export interface UserSkill {
   id: string;
   userId: string;
   skillName: string;
-  proficiencyLevel: 1 | 2 | 3 | 4 | 5;
-  source: 'manual' | 'assessment' | 'linkedin';
+  proficiencyLevel: 0 | 1 | 2 | 3 | 4 | 5; // 0 = needs rating
+  source: 'manual' | 'assessment' | 'linkedin' | 'role_requirement';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -53,6 +53,15 @@ export interface SkillGap {
   gap: number;
   priority: 'critical' | 'high' | 'medium' | 'low';
   recommendations?: string[];
+  matchedUserSkill?: string; // User skill that matched this requirement (for fuzzy/transferable matches)
+}
+
+// Skill match from fuzzy matching
+export interface SkillMatch {
+  requiredSkill: string;
+  userSkill: string;
+  matchType: 'exact' | 'similar' | 'transferable';
+  confidence: number;
 }
 
 // Full skill gap analysis
@@ -63,7 +72,7 @@ export interface SkillGapAnalysis {
   overallReadiness: number;
   criticalGaps: SkillGap[];
   recommendations: string[];
-  milestoneSkillMapping: Record<string, string[]>;
+  milestoneSkillMapping: Record<string, unknown>; // Can include skillMatches: SkillMatch[]
   analyzedAt: string;
 }
 
@@ -86,6 +95,7 @@ export interface ApiUsageSummary {
 
 // Proficiency level labels
 export const PROFICIENCY_LABELS: Record<number, string> = {
+  0: 'Needs rating',
   1: 'Beginner',
   2: 'Elementary',
   3: 'Intermediate',

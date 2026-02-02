@@ -53,6 +53,13 @@ export function Skills() {
         updatedAt: s.updated_at,
       }));
 
+      // Sort skills: unrated (level 0) first, then alphabetically
+      transformedSkills.sort((a, b) => {
+        if (a.proficiencyLevel === 0 && b.proficiencyLevel !== 0) return -1;
+        if (a.proficiencyLevel !== 0 && b.proficiencyLevel === 0) return 1;
+        return a.skillName.localeCompare(b.skillName);
+      });
+
       setSkills(transformedSkills);
     } catch (error) {
       console.error('Error loading skills:', error);
@@ -163,6 +170,15 @@ export function Skills() {
           </h1>
         </div>
 
+        {/* Unrated Skills Alert */}
+        {skills.filter(s => s.proficiencyLevel === 0).length > 0 && (
+          <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <span className="font-semibold">{skills.filter(s => s.proficiencyLevel === 0).length} skills need rating</span> — Tap to rate your proficiency level for accurate gap analysis.
+            </p>
+          </div>
+        )}
+
         {/* Skills List */}
         {skills.length === 0 ? (
           <Card>
@@ -180,7 +196,11 @@ export function Skills() {
             {skills.map((skill) => (
               <div
                 key={skill.id}
-                className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                className={`flex items-center gap-2 p-2 rounded-lg border ${
+                  skill.proficiencyLevel === 0
+                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                }`}
               >
                 {/* Skill Name */}
                 <div className="flex-1 min-w-0">
@@ -205,6 +225,13 @@ export function Skills() {
                         </option>
                       ))}
                     </select>
+                  ) : skill.proficiencyLevel === 0 ? (
+                    <button
+                      onClick={() => setEditingSkillId(skill.id)}
+                      className="px-2 py-1 bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-200 rounded text-xs font-medium active:bg-amber-200 dark:active:bg-amber-700"
+                    >
+                      Tap to rate
+                    </button>
                   ) : (
                     <button
                       onClick={() => setEditingSkillId(skill.id)}

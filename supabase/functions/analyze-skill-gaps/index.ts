@@ -30,6 +30,107 @@ interface SkillGap {
   gap: number
   priority: string
   recommendations: string[]
+  matchedUserSkill?: string // User skill that matches this requirement
+}
+
+interface SkillMatch {
+  requiredSkill: string
+  userSkill: string
+  matchType: 'exact' | 'similar' | 'transferable'
+  confidence: number
+}
+
+// Normalize skill name for comparison
+function normalizeSkill(skill: string): string {
+  return skill
+    .toLowerCase()
+    .replace(/[.\-_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Check if two skills are similar
+function areSkillsSimilar(skill1: string, skill2: string): boolean {
+  const norm1 = normalizeSkill(skill1)
+  const norm2 = normalizeSkill(skill2)
+
+  // Exact match after normalization
+  if (norm1 === norm2) return true
+
+  // One contains the other
+  if (norm1.includes(norm2) || norm2.includes(norm1)) return true
+
+  // Common abbreviations and variations
+  const equivalents: Record<string, string[]> = {
+    'javascript': ['js', 'ecmascript', 'es6', 'es2015'],
+    'typescript': ['ts'],
+    'python': ['py', 'python3'],
+    'nodejs': ['node', 'node js'],
+    'reactjs': ['react', 'reactjs'],
+    'vuejs': ['vue', 'vuejs'],
+    'angularjs': ['angular'],
+    'postgresql': ['postgres', 'psql'],
+    'mongodb': ['mongo'],
+    'kubernetes': ['k8s'],
+    'amazon web services': ['aws'],
+    'google cloud platform': ['gcp'],
+    'microsoft azure': ['azure'],
+    'machine learning': ['ml'],
+    'artificial intelligence': ['ai'],
+    'natural language processing': ['nlp'],
+    'continuous integration': ['ci'],
+    'continuous deployment': ['cd'],
+    'cicd': ['ci/cd', 'ci cd'],
+    'project management': ['pm', 'project mgmt'],
+    'user experience': ['ux'],
+    'user interface': ['ui'],
+    'search engine optimization': ['seo'],
+  }
+
+  for (const [main, aliases] of Object.entries(equivalents)) {
+    const allVariants = [main, ...aliases]
+    const match1 = allVariants.some(v => norm1.includes(v) || v.includes(norm1))
+    const match2 = allVariants.some(v => norm2.includes(v) || v.includes(norm2))
+    if (match1 && match2) return true
+  }
+
+  return false
+}
+
+// Find transferable skills (skills that partially meet requirements)
+function findTransferableSkills(userSkills: UserSkill[], targetSkill: TargetSkill): SkillMatch | null {
+  const transferableMap: Record<string, string[]> = {
+    'leadership': ['team management', 'management', 'mentoring', 'coaching'],
+    'communication': ['presentation', 'public speaking', 'writing', 'technical writing'],
+    'problem solving': ['analytical thinking', 'critical thinking', 'debugging', 'troubleshooting'],
+    'programming': ['coding', 'software development', 'development'],
+    'data analysis': ['analytics', 'data science', 'statistics', 'excel'],
+    'design': ['graphic design', 'visual design', 'ui design', 'ux design'],
+    'marketing': ['digital marketing', 'content marketing', 'social media'],
+    'sales': ['business development', 'account management', 'customer relations'],
+  }
+
+  const targetNorm = normalizeSkill(targetSkill.skill_name)
+
+  for (const [category, related] of Object.entries(transferableMap)) {
+    const isTargetInCategory = targetNorm.includes(category) || related.some(r => targetNorm.includes(r))
+    if (isTargetInCategory) {
+      for (const userSkill of userSkills) {
+        const userNorm = normalizeSkill(userSkill.skill_name)
+        const isUserInCategory = userNorm.includes(category) || related.some(r => userNorm.includes(r))
+        if (isUserInCategory && userSkill.skill_name.toLowerCase() !== targetSkill.skill_name.toLowerCase()) {
+          return {
+            requiredSkill: targetSkill.skill_name,
+            userSkill: userSkill.skill_name,
+            matchType: 'transferable',
+            confidence: 0.6
+          }
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 serve(async (req) => {
@@ -162,14 +263,70 @@ Include 6-10 skills with:
       }
     }
 
-    // Create skill map for easy lookup
-    const userSkillMap = new Map(
-      (userSkills || []).map((s: UserSkill) => [s.skill_name.toLowerCase(), s.proficiency_level])
-    )
+    // Auto-add required skills to user_skills (with level 0 = needs rating)
+    if (targetSkills && targetSkills.length > 0) {
+      const existingSkillNames = new Set((userSkills || []).map((s: UserSkill) => s.skill_name.toLowerCase()))
 
-    // Calculate skill gaps
+      const skillsToAdd = targetSkills
+        .filter((ts: TargetSkill) => !existingSkillNames.has(ts.skill_name.toLowerCase()))
+        .map((ts: TargetSkill) => ({
+          user_id: user.id,
+          skill_name: ts.skill_name,
+          proficiency_level: 0, // 0 indicates "needs rating"
+          source: 'role_requirement'
+        }))
+
+      if (skillsToAdd.length > 0) {
+        await supabaseAdmin
+          .from('user_skills')
+          .upsert(skillsToAdd, { onConflict: 'user_id,skill_name' })
+      }
+    }
+
+    // Create skill map for easy lookup (including fuzzy matching)
+    const userSkillMap = new Map<string, number>()
+    const skillMatches: SkillMatch[] = []
+
+    for (const userSkill of (userSkills || [])) {
+      userSkillMap.set(userSkill.skill_name.toLowerCase(), userSkill.proficiency_level)
+    }
+
+    // Calculate skill gaps with fuzzy matching
     const skillGaps: SkillGap[] = (targetSkills || []).map((target: TargetSkill) => {
-      const currentLevel = userSkillMap.get(target.skill_name.toLowerCase()) || 0
+      let currentLevel = userSkillMap.get(target.skill_name.toLowerCase()) || 0
+      let matchedUserSkill: string | undefined = undefined
+
+      // If no exact match, try fuzzy matching
+      if (currentLevel === 0) {
+        for (const userSkill of (userSkills || [])) {
+          if (areSkillsSimilar(userSkill.skill_name, target.skill_name)) {
+            currentLevel = userSkill.proficiency_level
+            matchedUserSkill = userSkill.skill_name
+            skillMatches.push({
+              requiredSkill: target.skill_name,
+              userSkill: userSkill.skill_name,
+              matchType: 'similar',
+              confidence: 0.9
+            })
+            break
+          }
+        }
+      }
+
+      // If still no match, check for transferable skills
+      if (currentLevel === 0) {
+        const transferable = findTransferableSkills(userSkills || [], target)
+        if (transferable) {
+          // Give partial credit for transferable skills
+          const userSkill = (userSkills || []).find((s: UserSkill) => s.skill_name === transferable.userSkill)
+          if (userSkill) {
+            currentLevel = Math.floor(userSkill.proficiency_level * 0.5) // 50% credit
+            matchedUserSkill = `${transferable.userSkill} (transferable)`
+            skillMatches.push(transferable)
+          }
+        }
+      }
+
       const gap = Math.max(0, target.required_level - currentLevel)
 
       return {
@@ -178,7 +335,8 @@ Include 6-10 skills with:
         requiredLevel: target.required_level,
         gap,
         priority: target.priority,
-        recommendations: []
+        recommendations: [],
+        matchedUserSkill
       }
     }).filter((gap: SkillGap) => gap.gap > 0)
       .sort((a: SkillGap, b: SkillGap) => {
@@ -189,12 +347,29 @@ Include 6-10 skills with:
         return b.gap - a.gap
       })
 
-    // Calculate overall readiness
-    const totalRequired = (targetSkills || []).reduce((sum: number, s: TargetSkill) => sum + s.required_level, 0)
-    const totalAchieved = (targetSkills || []).reduce((sum: number, s: TargetSkill) => {
-      const current = userSkillMap.get(s.skill_name.toLowerCase()) || 0
-      return sum + Math.min(current, s.required_level)
-    }, 0)
+    // Calculate overall readiness (with fuzzy matching considered)
+    let totalRequired = 0
+    let totalAchieved = 0
+
+    for (const target of (targetSkills || [])) {
+      totalRequired += target.required_level
+
+      // Check exact match first
+      let current = userSkillMap.get(target.skill_name.toLowerCase()) || 0
+
+      // Then fuzzy match
+      if (current === 0) {
+        for (const userSkill of (userSkills || [])) {
+          if (areSkillsSimilar(userSkill.skill_name, target.skill_name)) {
+            current = userSkill.proficiency_level
+            break
+          }
+        }
+      }
+
+      totalAchieved += Math.min(current, target.required_level)
+    }
+
     const overallReadiness = totalRequired > 0 ? Math.round((totalAchieved / totalRequired) * 100) : 0
 
     // Get AI recommendations for top gaps
@@ -276,7 +451,7 @@ Your response must be valid JSON:
         overall_readiness: overallReadiness,
         critical_gaps: skillGaps,
         recommendations,
-        milestone_skill_mapping: {},
+        milestone_skill_mapping: { skillMatches }, // Store skill matches for display
         analyzed_at: new Date().toISOString()
       }, {
         onConflict: 'roadmap_id,user_id'
@@ -306,9 +481,10 @@ Your response must be valid JSON:
           overall_readiness: overallReadiness,
           critical_gaps: skillGaps,
           recommendations,
-          milestone_skill_mapping: {},
+          milestone_skill_mapping: { skillMatches },
           analyzed_at: new Date().toISOString()
         },
+        skillMatches, // Return skill matches for frontend display
         message: 'Skill gap analysis completed'
       }),
       {

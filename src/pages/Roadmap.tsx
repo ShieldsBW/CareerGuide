@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Card, CardContent } from '../components/ui';
 import { MilestoneCard } from '../components/MilestoneCard';
 import { supabase } from '../lib/supabase';
-import type { Milestone, Subtask, SkillGapAnalysis as SkillGapAnalysisType, TargetRoleSkill, Citation } from '../types';
+import type { Milestone, Subtask, SkillGapAnalysis as SkillGapAnalysisType, TargetRoleSkill, Citation, SkillMatch } from '../types';
 
 type TabType = 'milestones' | 'skills';
 
@@ -445,6 +445,30 @@ export function Roadmap() {
                 {analysisExpanded && (
                   <Card className="mt-2">
                     <CardContent>
+                      {/* Skill Matches - Show when skills were fuzzy matched */}
+                      {(() => {
+                        const matches = skillGapAnalysis.milestoneSkillMapping?.skillMatches as SkillMatch[] | undefined;
+                        const similarMatches = matches?.filter((m: SkillMatch) => m.matchType === 'similar' || m.matchType === 'transferable') || [];
+                        if (similarMatches.length > 0) {
+                          return (
+                            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2 text-sm">Skills Matched</h4>
+                              <div className="space-y-1">
+                                {similarMatches.slice(0, 5).map((match: SkillMatch, i: number) => (
+                                  <div key={i} className="text-xs text-blue-700 dark:text-blue-300">
+                                    Your "{match.userSkill}" → counts toward "{match.requiredSkill}"
+                                    <span className="text-blue-500 ml-1">
+                                      ({match.matchType === 'similar' ? 'similar skill' : 'transferable'})
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
                       {/* Critical Gaps */}
                       {skillGapAnalysis.criticalGaps.length > 0 && (
                         <div className="mb-4">
@@ -452,9 +476,9 @@ export function Roadmap() {
                           <div className="space-y-2">
                             {skillGapAnalysis.criticalGaps.map((gap, i) => (
                               <div key={i} className="flex items-center justify-between text-sm">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-900 dark:text-white">{gap.skillName}</span>
-                                  <span className={`px-1.5 py-0.5 text-xs rounded ${
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="text-gray-900 dark:text-white truncate">{gap.skillName}</span>
+                                  <span className={`px-1.5 py-0.5 text-xs rounded flex-shrink-0 ${
                                     gap.priority === 'critical' ? 'bg-red-100 text-red-700' :
                                     gap.priority === 'high' ? 'bg-orange-100 text-orange-700' :
                                     'bg-yellow-100 text-yellow-700'
@@ -462,7 +486,7 @@ export function Roadmap() {
                                     {gap.priority}
                                   </span>
                                 </div>
-                                <span className="text-gray-500">
+                                <span className="text-gray-500 flex-shrink-0 ml-2">
                                   {gap.currentLevel} → {gap.requiredLevel}
                                 </span>
                               </div>
